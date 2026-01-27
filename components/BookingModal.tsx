@@ -60,7 +60,6 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // States for Staff Booking
-  const [isStaffBooking, setIsStaffBooking] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -107,7 +106,6 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
     } else {
         setDriverIsProvider(false);
         setVehicleImage(null);
-        setIsStaffBooking(false);
         setSelectedUser(null);
         setSearchQuery('');
     }
@@ -119,10 +117,10 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
   useEffect(() => {
     if (selectedUser) {
         setPhone(selectedUser.phone || '');
-    } else {
+    } else if (!isRequest) { // Only reset phone if not a request (for drivers accepting)
         setPhone(profile?.phone || '');
     }
-  }, [selectedUser, profile]);
+  }, [selectedUser, profile, isRequest]);
   
   // Search Users Debounced Effect
   useEffect(() => {
@@ -136,11 +134,17 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
     }
     setIsSearching(true);
     searchTimeoutRef.current = window.setTimeout(async () => {
-        const { data, error } = await supabase
+        let query = supabase
             .from('profiles')
             .select('*')
-            .or(`full_name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`)
-            .limit(5);
+            .or(`full_name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`);
+        
+        // If it's a passenger request, staff should search for DRIVERS to assign to.
+        if (isRequest) {
+            query = query.eq('role', 'driver');
+        }
+
+        const { data, error } = await query.limit(5);
 
         if (error) {
             console.error(error);
@@ -154,7 +158,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
     return () => {
         if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
-  }, [searchQuery]);
+  }, [searchQuery, isRequest]);
 
 
   useEffect(() => {
@@ -206,6 +210,12 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
     if (phone.length < 10) { setError('Số điện thoại không hợp lệ'); return; }
     if (!pickupLocation.trim() || !dropoffLocation.trim()) { setError('Vui lòng chọn điểm đón và điểm trả chính'); return; }
     
+    // For staff accepting a request FOR a driver, a driver must be selected.
+    if (isStaff && isRequest && !selectedUser) {
+        setError('Vui lòng chọn một tài xế để giao chuyến.');
+        return;
+    }
+
     setIsSubmitting(true);
 
     const fullPickup = pickupDetail ? `${pickupLocation} (${pickupDetail})` : pickupLocation;
@@ -286,7 +296,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
         <div>
             <div className="flex items-center justify-between mb-3"><div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[9px] font-bold z-10 ${statusInfo.style}`}>{isOngoing ? <Play size={10} className="animate-pulse" /> : <StatusIcon size={10} />} {statusInfo.label}</div><div className="flex flex-col items-center"><span className="text-[8px] font-bold text-slate-500">{isRequest ? (trip.seats === 7 ? 'Bao xe' : `${trip.seats} ghế`) + ` (${trip.bookings_count || 0} xe nhận)` : `Còn ${trip.available_seats}/${trip.seats} ghế trống`}</span><div className="w-16 bg-slate-100 h-1 rounded-full overflow-hidden mt-0.5"><div className={`h-full rounded-full transition-all duration-500 ${fillBarColor}`} style={{ width: `${isRequest ? 100 : fillPercentage}%` }}></div></div></div><p className={`text-sm font-bold tracking-tight ${isRequest ? 'text-orange-600' : 'text-indigo-600'}`}>{trip.price === 0 ? 'Thoả thuận' : new Intl.NumberFormat('vi-VN').format(trip.price) + 'đ'}</p></div>
             <div className="flex flex-col gap-2.5 items-start mb-3 min-h-[30px] justify-center"><div className="flex items-center gap-2.5 w-full"><div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-lg shrink-0 ${isRequest ? 'bg-orange-500 shadow-orange-100' : 'bg-indigo-600 shadow-indigo-100'}`}>{trip.driver_name?.charAt(0) || 'U'}</div><h4 className="font-bold text-slate-900 text-[13px] leading-tight truncate flex-1">{trip.driver_name}</h4></div><div className="flex items-center gap-1.5 min-w-0 flex-wrap pl-0.5"><span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[8px] font-bold truncate ${isRequest ? 'bg-orange-50 text-orange-600 border-orange-100' : vehicleConfig.style}`}><VIcon size={9} /> {isRequest ? (trip.vehicle_info || 'Cần tìm xe') : vehicleModel}</span>{!isRequest && licensePlate && (<div className="inline-flex items-center bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm self-start whitespace-nowrap"><CopyableCode code={licensePlate} className="text-[9px] font-black uppercase tracking-wider" label={licensePlate} /></div>)}</div></div>
-            <div className="space-y-2.5 mb-3 relative"><div className="absolute left-[7px] top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-indigo-100/70 via-slate-100/70 to-emerald-100/70"></div><div className="flex items-center gap-3 relative z-10"><div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-indigo-100/70 border-indigo-200/50 shadow-indigo-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-indigo-600"></div></div><div className="flex-1"><p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.origin_name}</p><div className="flex items-center gap-1.5 mt-1"><div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-100"><Clock size={8} /> <span className="text-[9px] font-black">{depTime}</span></div><div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{depDate}</span></div></div></div></div><div className="flex items-center gap-3 relative z-10"><div className="w-4 h-4 rounded-full bg-emerald-100/70 flex items-center justify-center shrink-0 border border-emerald-200/50 shadow-lg shadow-emerald-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div></div><div className="flex-1"><p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.dest_name}</p><div className="flex items-center gap-1.5 mt-1"><div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-md border border-emerald-100 shadow-sm"><Clock size={8} /> <span className="text-[9px] font-black">{arrTime}</span></div><div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{arrDate}</span></div></div></div></div></div>
+            <div className="space-y-2.5 mb-3 relative"><div className="absolute left-[7px] top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-indigo-100/70 via-slate-100/70 to-emerald-100/70"></div><div className="flex items-center gap-3 relative z-10"><div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-indigo-100/70 border-indigo-200/50 shadow-indigo-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-indigo-600"></div></div><div className="flex-1"><p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.origin_name}</p><div className="flex items-center gap-1.5 mt-1"><div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-100"><Clock size={8} /> <span className="text-[9px] font-black">{depTime}</span></div><div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{depDate}</span></div></div></div></div><div className="flex items-center gap-3 relative z-10"><div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-emerald-100/70 border-emerald-200/50 shadow-emerald-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div></div><div className="flex-1"><p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.dest_name}</p><div className="flex items-center gap-1.5 mt-1"><div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-md border border-emerald-100 shadow-sm"><Clock size={8} /> <span className="text-[9px] font-black">{arrTime}</span></div><div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{arrDate}</span></div></div></div></div></div>
         </div>
         <div className="mt-auto pt-3 border-t border-slate-100 grid grid-cols-2 items-center"><div className="flex justify-start"><div className="inline-flex items-center bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md border border-rose-100 shadow-sm"><CopyableCode code={tripCode} className="text-[9px] font-black" label={tripCode} /></div></div><div className="flex justify-end items-center gap-1 text-[9px] font-bold text-slate-400"><Clock size={10} className="shrink-0" /><span>{createdAtTime} {createdAtDay}</span></div></div>
     </div>
@@ -314,7 +324,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
                             <div ref={searchRef} className={`p-4 rounded-[24px] bg-white border shadow-sm relative flex flex-col shrink-0 ${selectedUser ? 'border-indigo-200' : 'border-slate-100'}`}>
                                 <div className="flex items-center justify-between mb-2">
                                     <h4 className="text-xs font-bold flex items-center gap-2 text-indigo-600">
-                                        <UserSearch size={14} /> Đặt hộ cho thành viên
+                                        <UserSearch size={14} /> {isRequest ? 'Giao cho tài xế' : 'Đặt hộ cho thành viên'}
                                     </h4>
                                     {selectedUser && <button onClick={() => { setSelectedUser(null); setSearchQuery(''); }} className="text-[9px] font-bold text-rose-500 hover:underline">Đặt cho tôi</button>}
                                 </div>
@@ -330,7 +340,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
                                 ) : (
                                     <>
                                     <div className="relative">
-                                        <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Tìm theo Tên hoặc SĐT..." className="w-full pl-8 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all"/>
+                                        <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={isRequest ? "Tìm tài xế theo Tên/SĐT..." : "Tìm thành viên theo Tên/SĐT..."} className="w-full pl-8 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all"/>
                                         <div className="absolute left-2.5 top-1/2 -translate-y-1/2">{isSearching ? <Loader2 size={12} className="animate-spin text-slate-400" /> : <Search size={12} className="text-slate-400" />}</div>
                                     </div>
                                     {searchResults.length > 0 && (

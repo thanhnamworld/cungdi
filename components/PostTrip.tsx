@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MapPin, Calendar, Users, Car, CheckCircle2, Navigation, Clock, Repeat, ChevronDown, Banknote, Loader2, AlertTriangle, Info, ArrowRight, DollarSign, Check, Map as MapIcon, Timer, PlusCircle, ToggleLeft, ToggleRight, Sparkles } from 'lucide-react';
+import { Send, MapPin, Calendar, Users, Car, CheckCircle2, Navigation, Clock, Repeat, ChevronDown, Banknote, Loader2, AlertTriangle, Info, ArrowRight, DollarSign, Check, Map as MapIcon, Timer, PlusCircle, ToggleLeft, ToggleRight, Sparkles, UserSearch, X } from 'lucide-react';
 import { getRouteDetails } from '../services/geminiService.ts';
 import { LOCAL_LOCATIONS } from '../services/locationData.ts';
 import CustomDatePicker from './CustomDatePicker.tsx';
@@ -19,7 +18,7 @@ interface Vehicle {
 }
 
 interface PostTripProps {
-  onPost: (trips: any[]) => void;
+  onPost: (trips: any[], forUserId?: string) => void;
   profile: Profile | null;
   onManageVehicles: () => void;
   initialMode?: 'DRIVER' | 'PASSENGER'; // New prop
@@ -108,6 +107,13 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
   const [originSuggestions, setOriginSuggestions] = useState<{name: string, uri: string}[]>([]);
   const [destSuggestions, setDestSuggestions] = useState<{name: string, uri: string}[]>([]);
   
+  // States for Staff Actions
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Profile[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
+  const isStaff = profile?.role === 'admin' || profile?.role === 'manager';
+  
   // Refs
   const datePickerRef = useRef<HTMLDivElement>(null);
   const timePickerRef = useRef<HTMLDivElement>(null);
@@ -116,6 +122,9 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
   const destRef = useRef<HTMLDivElement>(null);
   const vehiclePickerRef = useRef<HTMLDivElement>(null);
   const seatsPickerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<number | null>(null);
+
 
   useEffect(() => {
     // Reset seats and price when switching modes
@@ -128,26 +137,59 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
        setPrice('0'); 
        setIsNegotiable(true); // Default ON for Passenger
     }
+    // Reset selected user when mode changes
+    setSelectedUser(null);
+    setSearchQuery('');
+    setSearchResults([]);
   }, [postMode]);
 
   const fetchUserVehicles = async () => {
-    if (!profile) return;
-    const { data, error } = await supabase.from('vehicles').select('*').eq('user_id', profile.id);
+    const userIdToFetch = selectedUser?.id || profile?.id;
+    if (!userIdToFetch) return;
+
+    const { data, error } = await supabase.from('vehicles').select('*').eq('user_id', userIdToFetch);
     if (data) {
       setUserVehicles(data);
-      if (data.length > 0 && !selectedVehicleId) {
-        setSelectedVehicleId(data[0].id);
-      }
+      // Auto-select first vehicle if one exists, reset if not
+      setSelectedVehicleId(data[0]?.id || '');
+    } else {
+      setUserVehicles([]);
+      setSelectedVehicleId('');
     }
   };
 
-  useEffect(() => { fetchUserVehicles(); }, [profile]);
+  useEffect(() => { 
+    // Refetch vehicles when profile changes OR when staff selects a different user
+    fetchUserVehicles(); 
+  }, [profile, selectedUser]);
   
   const formatNumber = (num: string) => {
     if (!num) return "";
     const value = num.replace(/\D/g, "");
     return value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   };
+
+  // Debounced Search for Users
+  useEffect(() => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    if (searchQuery.length < 2) {
+        setSearchResults([]);
+        setIsSearching(false);
+        return;
+    }
+    setIsSearching(true);
+    searchTimeoutRef.current = window.setTimeout(async () => {
+        let query = supabase.from('profiles').select('*').or(`full_name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`);
+        if (postMode === 'DRIVER') {
+            query = query.eq('role', 'driver');
+        }
+        const { data, error } = await query.limit(5);
+        if (error) console.error(error);
+        else setSearchResults(data || []);
+        setIsSearching(false);
+    }, 500);
+    return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
+  }, [searchQuery, postMode]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -158,6 +200,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
       if (seatsPickerRef.current && !seatsPickerRef.current.contains(event.target as Node)) setShowSeats(false);
       if (originRef.current && !originRef.current.contains(event.target as Node)) setOriginSuggestions([]);
       if (destRef.current && !destRef.current.contains(event.target as Node)) setDestSuggestions([]);
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) setSearchResults([]);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -220,8 +263,10 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    const selectedVehicle = userVehicles.find(v => v.id === selectedVehicleId);
+    const authorProfile = selectedUser || profile;
+    if (!authorProfile) return;
 
+    const selectedVehicle = userVehicles.find(v => v.id === selectedVehicleId);
     const rawPrice = price.replace(/\D/g, "");
     
     // Validation
@@ -237,7 +282,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
     
     // Validation riêng cho Tài xế
     if (postMode === 'DRIVER' && !selectedVehicle) {
-        setError("Vui lòng chọn phương tiện của bạn.");
+        setError(selectedUser ? `Tài xế '${selectedUser.full_name}' chưa có phương tiện nào.` : "Vui lòng chọn phương tiện của bạn.");
         return;
     }
 
@@ -304,7 +349,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
     };
 
     try {
-      await onPost(tripsToCreate.map(t => ({ ...tripBase, departureTime: t.departureTime, arrivalTime: t.arrivalTime })));
+      await onPost(tripsToCreate.map(t => ({ ...tripBase, departureTime: t.departureTime, arrivalTime: t.arrivalTime })), selectedUser?.id);
       // Parent `onPost` usually handles API call and closing or resetting.
     } catch (err: any) {
       setError(err.message || "Đã có lỗi xảy ra khi lưu.");
@@ -352,6 +397,47 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
           <Users size={14} /> Tôi cần tìm xe
         </button>
       </div>
+      
+      {isStaff && (
+        <div ref={searchRef} className={`mb-6 p-4 rounded-[24px] bg-white border shadow-sm relative flex flex-col shrink-0 ${selectedUser ? 'border-indigo-200' : 'border-slate-100'}`}>
+          <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-bold flex items-center gap-2 text-indigo-600">
+                  <UserSearch size={14} /> {postMode === 'DRIVER' ? 'Đăng chuyến hộ tài xế' : 'Đăng yêu cầu hộ hành khách'}
+              </h4>
+              {selectedUser && <button onClick={() => { setSelectedUser(null); setSearchQuery(''); }} className="text-[9px] font-bold text-rose-500 hover:underline">Đăng cho tôi</button>}
+          </div>
+          
+          {selectedUser ? (
+              <div className="p-2 bg-indigo-50 rounded-xl flex items-center justify-between border border-indigo-100">
+                  <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">{selectedUser.full_name.charAt(0)}</div>
+                      <span className="text-xs font-bold text-slate-800">{selectedUser.full_name}</span>
+                  </div>
+                  <button onClick={() => { setSelectedUser(null); setSearchQuery(''); }} className="p-1 rounded-full hover:bg-white"><X size={14} className="text-slate-400" /></button>
+              </div>
+          ) : (
+              <>
+              <div className="relative">
+                  <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={postMode === 'DRIVER' ? 'Tìm tài xế theo Tên/SĐT...' : 'Tìm hành khách theo Tên/SĐT...'} className="w-full pl-8 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all"/>
+                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2">{isSearching ? <Loader2 size={12} className="animate-spin text-slate-400" /> : <UserSearch size={12} className="text-slate-400" />}</div>
+              </div>
+              {searchResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-xl z-50 overflow-hidden max-h-40 overflow-y-auto custom-scrollbar">
+                  {searchResults.map(user => (
+                      <button key={user.id} onClick={() => { setSelectedUser(user); setSearchResults([]); setSearchQuery(''); }} className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 border-b border-slate-50 last:border-0 flex items-center gap-2">
+                          <div className="w-5 h-5 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center text-[9px] font-bold">{user.full_name.charAt(0)}</div>
+                          <div>
+                              <div>{user.full_name} <span className="text-[9px] text-slate-400">({user.role})</span></div>
+                              <div className="text-[9px] text-slate-400 font-medium">{user.phone}</div>
+                          </div>
+                      </button>
+                  ))}
+                  </div>
+              )}
+              </>
+          )}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className={`rounded-[32px] border border-white/50 shadow-xl overflow-hidden backdrop-blur-sm ${postMode === 'PASSENGER' ? 'bg-gradient-to-br from-orange-50 to-white' : 'bg-gradient-to-br from-indigo-50/90 via-purple-50/80 to-blue-50/90'}`}>
         {error && (
@@ -530,7 +616,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
                           </div>
                         </div>
                       ) : (
-                        <span className="text-slate-400">Chọn xe...</span>
+                        <span className="text-slate-400">{userVehicles.length > 0 ? "Chọn xe..." : (selectedUser ? `${selectedUser.full_name} chưa có xe` : "Chưa có xe nào")}</span>
                       )}
                       <ChevronDown size={12} className="text-slate-400" />
                     </button>

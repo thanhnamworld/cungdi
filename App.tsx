@@ -429,11 +429,13 @@ const App: React.FC = () => {
   }, [bookings, profile]);
 
 
-  const handlePostTrip = async (tripsToPost: any[]) => {
+  const handlePostTrip = async (tripsToPost: any[], forUserId?: string) => {
     if (!user) return;
+    const authorId = forUserId || user.id;
+
     try {
       const formattedTrips = tripsToPost.map(t => ({
-        driver_id: user.id, 
+        driver_id: authorId, 
         origin_name: t.origin.name, 
         origin_desc: t.origin.description, 
         dest_name: t.destination.name, 
@@ -450,7 +452,10 @@ const App: React.FC = () => {
       const { error } = await supabase.from('trips').insert(formattedTrips);
       if (error) throw error;
       refreshAllData();
-      setActiveTab('my-trips'); 
+      
+      const isMyPost = authorId === user.id;
+      const tabToActivate = (profile?.role === 'admin' || profile?.role === 'manager') ? (isMyPost ? 'my-trips' : 'manage-trips') : 'my-trips';
+      setActiveTab(tabToActivate); 
     } catch (err: any) { 
       showAlert({ title: 'Đăng chuyến thất bại', message: err.message || 'Đã có lỗi xảy ra, vui lòng thử lại.', variant: 'danger', confirmText: 'Đóng' });
     }
@@ -486,7 +491,8 @@ const App: React.FC = () => {
     } else {
       setIsBookingModalOpen(false);
       refreshAllData();
-      const tabToActivate = (profile?.role === 'admin' || profile?.role === 'manager') ? 'manage-orders' : 'my-requests';
+      const isMyOwnBooking = passengerIdForBooking === user.id;
+      const tabToActivate = (profile?.role === 'admin' || profile?.role === 'manager') ? (isMyOwnBooking ? 'my-requests' : 'manage-orders') : 'my-requests';
       setActiveTab(tabToActivate);
     }
   };
