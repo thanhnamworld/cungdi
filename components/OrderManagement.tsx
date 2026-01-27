@@ -460,7 +460,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
             </div>
             <div className="flex items-center gap-1.5 min-w-0 flex-wrap pl-0.5">
               <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[8px] font-bold truncate ${isRequest ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-orange-50 text-orange-600 border-orange-100'} flex-shrink-0 min-w-0`}>
-                  {isRequest ? <Car size={9} /> : <User size={9} />} {personLabel}
+                  {isRequest ? <Car size={9} /> : <CheckCircle2 size={9} />} {personLabel}
               </span>
             </div>
           </div>
@@ -554,7 +554,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
 
   return (
     <div className="space-y-4 animate-slide-up max-w-[1600px] mx-auto">
-      {/* ... existing render code ... */}
       {/* Pill Toggle Switch */}
       <div className="flex justify-center mb-2">
          <div className="bg-white p-1 rounded-2xl border border-slate-200 shadow-sm flex relative z-30 h-[42px]">
@@ -568,7 +567,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
                onClick={() => setRequestTypeFilter('BOOKING')}
                className={`px-5 h-full rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${requestTypeFilter === 'BOOKING' ? 'bg-orange-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
             >
-               <User size={14} /> Khách đặt
+               <CheckCircle2 size={14} /> Khách đặt
             </button>
             <button 
                onClick={() => setRequestTypeFilter('ACCEPTANCE')}
@@ -611,10 +610,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
             
             {/* Layout Toggle */}
             <div className="hidden md:flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm items-center shrink-0 h-[42px]">
-              <button onClick={() => setViewMode('list')} className={`p-2 h-full aspect-square flex items-center justify-center rounded-xl transition-all ${viewMode === 'list' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}>
+              <button onClick={() => setViewMode('list')} className={`p-1.5 h-full aspect-square flex items-center justify-center rounded-lg transition-all ${viewMode === 'list' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}>
                 <LayoutList size={18} />
               </button>
-              <button onClick={() => setViewMode('grid')} className={`p-2 h-full aspect-square flex items-center justify-center rounded-xl transition-all ${viewMode === 'grid' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}>
+              <button onClick={() => setViewMode('grid')} className={`p-1.5 h-full aspect-square flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}>
                 <LayoutGrid size={18} />
               </button>
             </div>
@@ -642,7 +641,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
             </>
         ) : (
           <div className="p-10 text-center bg-white rounded-[24px] border border-dashed border-slate-200">
-             <ShoppingBag size={32} className="mx-auto text-slate-300 mb-2" />
+             <CheckCircle2 size={32} className="mx-auto text-slate-300 mb-2" />
              <p className="text-xs font-bold text-slate-400">Không có đơn hàng nào</p>
           </div>
         )}
@@ -685,7 +684,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
                   const isPendingLong = order.status === 'PENDING' && (now - new Date(order.created_at).getTime() > 30 * 60 * 1000);
 
                   const personName = isRequest ? (order.profiles?.full_name || 'Tài xế nhận') : (order.profiles?.full_name || 'Khách vãng lai');
-                  const tripCode = trip?.trip_code || (trip?.id ? `T${trip.id.substring(0, 5).toUpperCase()}` : '---');
                   const priceColor = isRequest ? 'text-indigo-600' : 'text-orange-600';
                   const seatText = isRequest ? 'Nhận chuyến' : `Đặt ${order.seats_booked}/${trip?.seats} ghế`;
 
@@ -744,7 +742,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
                            </div>
                         ) : (
                            <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[9px] font-bold bg-orange-50 text-orange-600 border-orange-100 whitespace-nowrap">
-                              <User size={10} /> Khách đặt
+                              <CheckCircle2 size={10} /> Khách đặt
                            </div>
                         )}
                       </td>

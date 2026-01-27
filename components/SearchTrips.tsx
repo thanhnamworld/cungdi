@@ -105,10 +105,12 @@ export const UnifiedDropdown = ({ label, icon: Icon, options, value, onChange, p
         newValues = newValues.filter(v => v !== optValue);
         if (newValues.length === 0) newValues = ['ALL'];
       } else {
-        newValues.push(optValue);
+        newValues.push(newValues.includes(optValue) ? '' : optValue); // Simplified but maintain toggle logic
       }
     }
-    onChange(newValues);
+    // Corrected value multi-select logic to be simpler
+    const finalValues = optValue === 'ALL' ? ['ALL'] : (isSelected(optValue) ? (Array.isArray(value) ? value.filter(v=>v!==optValue) : ['ALL']) : (Array.isArray(value) ? [...value.filter(v=>v!=='ALL'), optValue] : [optValue]));
+    onChange(finalValues.length === 0 ? ['ALL'] : finalValues);
   };
 
   const renderCurrentLabel = () => {
@@ -352,7 +354,7 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onBook, userBookings =
     if (isOngoing) return <button disabled className="w-full h-10 flex items-center justify-center gap-2 rounded-xl bg-slate-200 text-slate-500 font-bold text-xs cursor-not-allowed"><Ban size={14} /> Xe đang chạy</button>;
 
     if (isFull) {
-      return <button type="button" onClick={(e) => { e.stopPropagation(); onBook(trip.id); }} className="w-full h-10 flex items-center justify-center gap-2 rounded-xl bg-orange-500 text-white font-bold text-xs shadow-lg shadow-orange-200 hover:bg-orange-600 transition-all animate-pulse-orange"><Users size={14} /> Đặt dự phòng</button>;
+      return <button type="button" onClick={(e) => { e.stopPropagation(); onBook(trip.id); }} className="w-full h-10 flex items-center justify-center gap-2 rounded-xl bg-orange-500 text-white font-bold text-xs shadow-lg shadow-orange-200 hover:bg-orange-600 transition-all animate-pulse-orange"><CheckCircle2 size={14} /> Đặt dự phòng</button>;
     }
 
     return <button type="button" onClick={(e) => { e.stopPropagation(); onBook(trip.id); }} className="w-full h-10 flex items-center justify-center gap-2 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all animate-pulse-blue"><Zap size={14} /> Đặt chỗ ngay</button>;
@@ -407,7 +409,7 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onBook, userBookings =
           {isRequest ? (
              <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                 <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[8px] font-bold truncate bg-orange-50 text-orange-600 border-orange-100">
-                   <Users size={9} /> {trip.vehicle_info || 'Khách tìm xe'}
+                   <CheckCircle2 size={9} /> {trip.vehicle_info || 'Khách tìm xe'}
                 </span>
              </div>
           ) : (
@@ -659,7 +661,7 @@ const SearchTrips: React.FC<SearchTripsProps> = ({ trips, onBook, userBookings, 
             className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${isRequestMode ? 'bg-orange-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`} 
             onClick={() => setIsRequestMode(true)}
           >
-            <Users size={14} /> Yêu cầu chuyến xe
+            <CheckCircle2 size={14} /> Yêu cầu chuyến xe
           </button>
         </div>
       </div>
@@ -749,7 +751,7 @@ const SearchTrips: React.FC<SearchTripsProps> = ({ trips, onBook, userBookings, 
               {renderTripGroup(groupedTrips.today, 'Hôm nay', CalendarDays, { color: 'text-emerald-600', bgColor: 'bg-emerald-100' })}
               {renderTripGroup(groupedTrips.thisMonth, 'Trong tháng này', Calendar, { color: 'text-sky-600', bgColor: 'bg-sky-100' })}
               {renderTripGroup(groupedTrips.future, 'Tương lai', Send, { color: 'text-indigo-600', bgColor: 'bg-indigo-100' })}
-              {renderTripGroup(groupedTrips.past, 'Quá khứ', History, { color: 'text-slate-500', bgColor: 'bg-slate-100' })}
+              {renderTripGroup(groupedTrips.future, 'Quá khứ', History, { color: 'text-slate-500', bgColor: 'bg-slate-100' })}
             </>
         ) : (
           <div className="col-span-full py-20 text-center bg-white rounded-[32px] border border-dashed border-slate-200">

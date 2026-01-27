@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, MapPin, Calendar, Users, Car, CheckCircle2, Navigation, Clock, Repeat, ChevronDown, Banknote, Loader2, AlertTriangle, Info, ArrowRight, DollarSign, Check, Map as MapIcon, Timer, PlusCircle, ToggleLeft, ToggleRight, Sparkles, UserSearch, X } from 'lucide-react';
 import { getRouteDetails } from '../services/geminiService.ts';
@@ -394,7 +395,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
           className={`px-6 h-full rounded-full text-xs font-bold transition-all flex items-center gap-2 ${postMode === 'PASSENGER' ? 'bg-orange-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`} 
           onClick={() => setPostMode('PASSENGER')}
         >
-          <Users size={14} /> Tôi cần tìm xe
+          <CheckCircle2 size={14} /> Tôi cần tìm xe
         </button>
       </div>
       
@@ -672,12 +673,12 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
                     ) : (
                       <>
                         {[1, 2, 3, 4, 5, 6].map(s => (
-                          <button key={s} type="button" onClick={() => { setSeats(s); setShowSeats(false); }} className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all ${seats === s ? 'bg-orange-50 text-orange-600 border border-orange-100' : 'hover:bg-slate-50 text-slate-600'}`}>
+                          <button key={s} type="button" onClick={() => { setSeats(s); setShowSeats(false); }} className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all ${seats === s ? 'bg-orange-50 text-orange-600 border-orange-100' : 'hover:bg-slate-50 text-slate-600'}`}>
                              <div className={`w-1.5 h-1.5 rounded-full mb-1 ${getSeatDotColor(s)}`}></div>
-                             <span className="text-[10px] font-black">{s}</span>
+                           <span className="text-[10px] font-black">{s}</span>
                           </button>
                         ))}
-                        <button onClick={() => { setSeats(7); setShowSeats(false); }} className={`col-span-2 flex flex-col items-center justify-center p-2 rounded-lg transition-all ${seats === 7 ? 'bg-purple-50 text-purple-600 border border-purple-100' : 'hover:bg-slate-50 text-slate-600'}`}>
+                        <button onClick={() => { setSeats(7); setShowSeats(false); }} className={`col-span-2 flex flex-col items-center justify-center p-2 rounded-lg transition-all ${seats === 7 ? 'bg-purple-50 text-purple-600 border-purple-100' : 'hover:bg-slate-50 text-slate-600'}`}>
                            <div className={`w-1.5 h-1.5 rounded-full mb-1 bg-purple-500`}></div>
                            <span className="text-[10px] font-black">Bao xe</span>
                         </button>

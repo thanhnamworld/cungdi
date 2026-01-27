@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  LayoutDashboard, Search, PlusCircle, Ticket, Bell, LogOut, Car, LogIn, Settings, ClipboardList, ShoppingBag, Users as UsersIcon, User, X, ChevronUp, ChevronDown, MoreHorizontal, Shield, HelpCircle, CheckCircle2, AlertCircle, Grid, Menu, Plus, FileText, ListChecks, Medal, Trophy, Gem, Heart, Award, Zap, Phone
+  LayoutDashboard, Search, PlusCircle, Ticket, Bell, LogOut, Car, LogIn, Settings, ClipboardList, ShoppingBag, Users as UsersIcon, User, X, ChevronUp, ChevronDown, MoreHorizontal, Shield, HelpCircle, CheckCircle2, AlertCircle, Grid, Menu, Plus, FileText, ListChecks, Medal, Trophy, Gem, Heart, Award, Zap, Phone, Users
 } from 'lucide-react';
 import { Notification, Profile, UserRole, MembershipTier } from '../types';
 import { supabase } from '../lib/supabase';
@@ -149,15 +150,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
   // Updated Navigation Items
   const navItems = [
     { id: 'search', label: 'Tìm chuyến', icon: Search },
-    { id: 'my-trips', label: 'Chuyến xe', icon: Car }, 
-    { id: 'my-requests', label: 'Yêu cầu', icon: Ticket }, 
+    { id: 'my-trips', label: 'Chuyến xe', icon: Car }, // Unified Icon
+    { id: 'my-requests', label: 'Yêu cầu', icon: CheckCircle2 }, // Updated to CheckCircle2
   ];
 
   const manageItems = [
     { id: 'dashboard', label: 'Thống kê', icon: LayoutDashboard, roles: ['admin', 'manager', 'driver'] },
-    { id: 'manage-trips', label: 'Quản lý Chuyến xe', icon: ClipboardList, roles: ['admin', 'manager', 'driver'] },
-    { id: 'manage-orders', label: 'Quản lý Yêu cầu', icon: ShoppingBag, roles: ['admin', 'manager', 'driver'] },
-    { id: 'admin', label: 'Hệ thống', icon: Shield, roles: ['admin', 'manager'] },
+    { id: 'manage-trips', label: 'Quản lý Chuyến xe', icon: Car, roles: ['admin', 'manager', 'driver'] }, // Unified Icon
+    { id: 'manage-orders', label: 'Quản lý Yêu cầu', icon: CheckCircle2, roles: ['admin', 'manager', 'driver'] }, // Updated to CheckCircle2
+    { id: 'admin', label: 'Thành viên', icon: Users, roles: ['admin', 'manager'] }, // Renamed & New Icon
   ];
 
   const allPossibleItems = [
@@ -217,7 +218,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
             )}
             {activeBookingsCount > 0 && (
               <div className="flex items-center gap-1.5 bg-orange-100/70 text-orange-800 px-3 py-1 rounded-full border border-orange-200/80">
-                <Zap size={10} className="text-orange-600" />
+                <CheckCircle2 size={10} className="text-orange-600" />
                 <span className="font-bold text-[9px]">{activeBookingsCount} Yêu cầu</span>
               </div>
             )}
@@ -242,7 +243,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
           </button>
           
           <nav className="flex-1 space-y-1.5 overflow-y-auto custom-scrollbar pr-2">
-            <p className="text-[11px] font-bold text-slate-500 mb-4 px-3 uppercase tracking-wider">Cá nhân</p>
             {navItems.map((item) => {
               if (['my-trips', 'my-requests'].includes(item.id) && !canSeePersonalTabs) return null;
               return (
@@ -273,7 +273,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
 
             {isStaff && (
               <>
-                <p className="text-[11px] font-bold text-slate-500 mt-8 mb-4 px-3 uppercase tracking-wider">Điều hành</p>
+                <div className="my-2 border-t border-slate-200/50"></div>
                 {manageItems.filter(item => item.roles.includes(profile?.role || '')).map(item => (
                   <button
                     key={item.id}
@@ -552,7 +552,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
               {canSeePersonalTabs && (
                 <MobileNavItem 
                   id="my-requests" 
-                  icon={Ticket} 
+                  icon={CheckCircle2} 
                   label="Yêu cầu" 
                   isActive={activeTab === 'my-requests'} 
                   onClick={() => setActiveTab('my-requests')} 

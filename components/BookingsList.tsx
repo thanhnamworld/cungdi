@@ -321,7 +321,7 @@ const BookingsList: React.FC<BookingsListProps> = ({ bookings, trips, profile, o
     const avatarClass = isRequest ? 'bg-orange-600 shadow-orange-100' : 'bg-indigo-600 shadow-indigo-100';
     const labelClass = isRequest ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100';
     const labelText = isRequest ? 'Khách tìm xe' : 'Tài xế tìm khách';
-    const LabelIcon = isRequest ? Users : Car;
+    const LabelIcon = isRequest ? CheckCircle2 : Car;
     const progressBarClass = isRequest ? 'bg-orange-500' : 'bg-indigo-500';
     const priceClass = isRequest ? 'text-orange-600' : 'text-indigo-600';
     const seatLabel = isRequest ? 'Yêu cầu' : `Đặt ${order.seats_booked}/${trip.seats} ghế`;
@@ -360,7 +360,7 @@ const BookingsList: React.FC<BookingsListProps> = ({ bookings, trips, profile, o
           <div className="space-y-2.5 mb-3 relative">
             <div className="absolute left-[7px] top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-indigo-100/70 via-slate-100/70 to-emerald-100/70"></div>
             <div className="flex items-center gap-3 relative z-10"><div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-indigo-100/70 border-indigo-200/50 shadow-indigo-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-indigo-600"></div></div><div className="flex-1 min-w-0"><p className="font-bold text-slate-700 text-[12px] truncate leading-tight" title={displayPickup}>{displayPickup}</p><div className="flex items-center gap-1.5 mt-1"><div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-100"><Clock size={8} /> <span className="text-[9px] font-black">{depTime}</span></div><div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{depDate}</span></div></div></div></div>
-            <div className="flex items-center gap-3 relative z-10"><div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-emerald-100/70 border-emerald-200/50 shadow-emerald-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div></div><div className="flex-1 min-w-0"><p className="font-bold text-slate-700 text-[12px] truncate leading-tight" title={displayDropoff}>{displayDropoff}</p><div className="flex items-center gap-1.5 mt-1"><div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-md border border-emerald-100 shadow-sm"><Clock size={8} /> <span className="text-[9px] font-black">{arrTime}</span></div><div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{arrDate}</span></div></div></div></div>
+            <div className="flex items-center gap-3 relative z-10"><div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-emerald-100/70 border-emerald-200/50 shadow-emerald-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div></div><div className="flex-1 min-w-0"><p className="font-bold text-slate-700 text-[12px] truncate leading-tight" title={displayDropoff}>{displayDropoff}</p><div className="flex items-center gap-1.5 mt-1"><div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-emerald-100 shadow-sm"><Clock size={8} /> <span className="text-[9px] font-black">{arrTime}</span></div><div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{arrDate}</span></div></div></div></div>
           </div>
         </div>
         <div className="grid grid-cols-3 items-center pt-3 border-t border-slate-100 mt-auto">
@@ -403,7 +403,7 @@ const BookingsList: React.FC<BookingsListProps> = ({ bookings, trips, profile, o
     const createdAtDay = createdAt ? createdAt.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--/--';
     
     const vehicleConfig = getVehicleConfig(trip.vehicle_info);
-    const VIcon = isRequest ? Users : vehicleConfig.icon;
+    const VIcon = isRequest ? CheckCircle2 : vehicleConfig.icon;
 
     return (
       <div key={trip.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-full group ${isOngoing ? 'border-blue-200 bg-blue-50/20' : 'border-slate-100'} ${isCompleted || isCancelled ? 'opacity-80' : ''}`} onClick={() => onViewTripDetails(trip)}>
