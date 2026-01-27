@@ -1,6 +1,15 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
+const getAiClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    console.warn("Gemini API Key is missing or empty.");
+    return null;
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
 /**
  * Fetches estimated route details from Gemini API.
  * @param originName The starting point of the route.
@@ -9,8 +18,8 @@ import { GoogleGenAI, Type } from "@google/genai";
  */
 export const getRouteDetails = async (originName: string, destinationName: string): Promise<{ distance: string; duration: string; durationInMinutes: number } | null> => {
   try {
-    // FIX: Luôn sử dụng new GoogleGenAI({apiKey: process.env.API_KEY}) theo quy định mới nhất.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getAiClient();
+    if (!ai) return null;
 
     const schema = {
       type: Type.OBJECT,
@@ -45,7 +54,7 @@ Chỉ trả về kết quả dưới dạng JSON tuân thủ theo schema đã cu
       },
     });
 
-    // FIX: Truy cập trực tiếp thuộc tính .text (không phải là một phương thức).
+    // FIX: Safely access and trim the response text, as it can be undefined.
     const text = response.text?.trim();
     if (!text) {
         console.error("Gemini API returned an empty response for route details.");

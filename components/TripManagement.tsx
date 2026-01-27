@@ -298,7 +298,7 @@ const TripManagement: React.FC<TripManagementProps> = ({ profile, trips, booking
     const vehicleModel = vehicleParts[0] || '---';
     const licensePlate = vehicleParts[1] ? vehicleParts[1].replace(')', '') : '';
     const vehicleConfig = getVehicleConfig(vehicleModel);
-    const VIcon = isRequest ? CheckCircle2 : vehicleConfig.icon;
+    const VIcon = isRequest ? Users : vehicleConfig.icon;
 
     return (
       <div key={trip.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative flex flex-col justify-between h-full ${isOngoing ? 'border-blue-200 bg-blue-50/20' : isUrgent ? 'border-rose-400 bg-rose-50/20' : isPreparing ? 'border-amber-300 bg-amber-50/10' : 'border-slate-100'} ${isCompleted || isCancelled ? 'opacity-80' : ''}`} onClick={() => onViewTripDetails(trip)}>
@@ -402,7 +402,7 @@ const TripManagement: React.FC<TripManagementProps> = ({ profile, trips, booking
                onClick={() => setTripTypeFilter('DEMAND')}
                className={`px-5 h-full rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${tripTypeFilter === 'DEMAND' ? 'bg-orange-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
             >
-               <CheckCircle2 size={14} /> Yêu cầu
+               <Users size={14} /> Yêu cầu
             </button>
          </div>
       </div>
