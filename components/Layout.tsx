@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, Search, PlusCircle, Ticket, Bell, LogOut, Car, LogIn, Settings, ClipboardList, ShoppingBag, Users as UsersIcon, User, X, ChevronUp, ChevronDown, MoreHorizontal, Shield, HelpCircle, CheckCircle2, AlertCircle, Grid, Menu, Plus, FileText, ListChecks, Medal, Trophy, Gem, Heart, Award, Zap, Phone
@@ -204,7 +203,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
             <div className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 border ${tierConfig.bg} ${tierConfig.color.replace('text-','text-slate-800 ')} ${tierConfig.border}`}>
                <TierIcon size={10} className={tierConfig.color} /> 
                {tierConfig.label}
-               {tierConfig.discountVal > 0 && <span className="bg-white/50 px-1 rounded text-emerald-600 ml-0.5">-{tierConfig.discountLabel}</span>}
+               {tierConfig.discountVal > 0 && <span className="bg-white/50 px-1 rounded text-rose-600 ml-0.5">-{tierConfig.discountLabel}</span>}
             </div>
           </div>
 

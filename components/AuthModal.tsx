@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Mail, Lock, User, Phone, Loader2, LogIn, UserPlus, Smartphone, History, Trash2, ArrowRight, KeyRound, CheckCircle2, Clock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -7,13 +6,14 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialView?: 'login' | 'register'; // Thêm prop này
 }
 
 const RECENT_LOGINS_KEY = 'tripease_recent_logins';
 
-const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
+const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess, initialView = 'login' }) => {
   // view: 'login' | 'register' | 'forgot'
-  const [view, setView] = useState<'login' | 'register' | 'forgot'>('login');
+  const [view, setView] = useState<'login' | 'register' | 'forgot'>(initialView);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -26,15 +26,22 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem(RECENT_LOGINS_KEY);
-    if (saved) {
-      try {
-        setRecentLogins(JSON.parse(saved));
-      } catch (e) {
-        setRecentLogins([]);
+    if (isOpen) {
+      setView(initialView); // Reset view về initialView mỗi khi mở modal
+      setError('');
+      setSuccessMsg('');
+      setLoading(false);
+      
+      const saved = localStorage.getItem(RECENT_LOGINS_KEY);
+      if (saved) {
+        try {
+          setRecentLogins(JSON.parse(saved));
+        } catch (e) {
+          setRecentLogins([]);
+        }
       }
     }
-  }, [isOpen]);
+  }, [isOpen, initialView]);
 
   const saveToRecent = (val: string) => {
     // Chỉ lưu nếu giá trị hợp lệ
@@ -159,7 +166,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
             </div>
           </div>
           <h3 className="text-2xl font-bold text-slate-900 tracking-tight">
-            {view === 'forgot' ? 'Khôi phục mật khẩu' : 'Chào mừng tới Cùng đi'}
+            {view === 'forgot' ? 'Khôi phục mật khẩu' : (view === 'register' ? 'Đăng ký tài khoản' : 'Chào mừng tới Cùng đi')}
           </h3>
           <p className="text-slate-500 text-[11px] mt-2 font-normal uppercase tracking-wider">
             {view === 'forgot' ? 'Nhập email để nhận hướng dẫn' : 'Hệ thống xe tiện chuyến thông minh'}
@@ -200,7 +207,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
             </div>
           )}
 
-          {/* Recent Logins Suggestion */}
+          {/* Recent Logins Suggestion (Only on Login Tab) */}
           {view === 'login' && recentLogins.length > 0 && !identifier && (
             <div className="mb-4 animate-in slide-in-from-top-2 fade-in">
               <p className="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wider flex items-center gap-1">

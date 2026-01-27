@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   User, Phone, ShieldCheck, Save, Loader2, Clock, 
@@ -418,7 +417,7 @@ const ProfileManagement: React.FC<ProfileManagementProps> = ({ isOpen, onClose, 
                    <div className={`px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1.5 border ${tierConfig.bg} ${tierConfig.color.replace('text-','text-slate-800 ')} ${tierConfig.border}`}>
                       <TierIcon size={12} className={tierConfig.color} /> 
                       {tierConfig.label} 
-                      {tierConfig.discountVal > 0 && <span className="bg-white/50 px-1 rounded text-emerald-600">-{tierConfig.discountLabel}</span>}
+                      {tierConfig.discountVal > 0 && <span className="bg-white/50 px-1 rounded text-rose-600">-{tierConfig.discountLabel}</span>}
                    </div>
 
                    <div className="group relative">

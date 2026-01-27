@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Layout from './components/Layout.tsx';
 import Dashboard from './components/Dashboard.tsx';
@@ -42,6 +41,8 @@ const App: React.FC = () => {
   
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalView, setAuthModalView] = useState<'login' | 'register'>('login'); // State để điều khiển view của AuthModal
+
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isTripDetailModalOpen, setIsTripDetailModalOpen] = useState(false); 
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
@@ -75,6 +76,12 @@ const App: React.FC = () => {
 
   const closeAlert = () => {
     setAlertConfig(prev => ({ ...prev, isOpen: false }));
+  };
+
+  // Helper để mở AuthModal với view cụ thể
+  const openAuthModal = (view: 'login' | 'register' = 'login') => {
+    setAuthModalView(view);
+    setIsAuthModalOpen(true);
   };
 
   const fetchProfile = useCallback(async (userId: string) => {
@@ -204,7 +211,9 @@ const App: React.FC = () => {
         setUser(data.session.user);
         fetchProfile(data.session.user.id);
       } else {
-        // TEMP: Auto login for testing
+        setProfileLoading(false);
+        // TEMP: Auto login for testing (COMMENTED OUT FOR RELEASE)
+        /*
         console.log("Auto-logging in for test...");
         try {
           const { error } = await supabase.auth.signInWithPassword({
@@ -219,6 +228,7 @@ const App: React.FC = () => {
           console.error(e);
           setProfileLoading(false);
         }
+        */
       }
     };
     
@@ -482,7 +492,11 @@ const App: React.FC = () => {
   };
 
   const handleOpenBookingModal = (tripId: string) => {
-    if (!user) { setIsAuthModalOpen(true); return; }
+    // Nếu chưa đăng nhập -> mở AuthModal ở tab Register (Đăng ký) để khuyến khích user mới
+    if (!user) { 
+        openAuthModal('register');
+        return; 
+    }
     const trip = trips.find(t => t.id === tripId);
     if (trip) { 
       const statusLabel = getTripStatusDisplay(trip).label;
@@ -497,8 +511,9 @@ const App: React.FC = () => {
   const handleViewTripDetails = useCallback((trip: Trip) => { setSelectedTrip(trip); setIsTripDetailModalOpen(true); }, []);
 
   const handlePostClick = (mode: 'DRIVER' | 'PASSENGER') => {
+    // Nếu chưa đăng nhập -> mở AuthModal ở tab Register (Đăng ký)
     if (!user) {
-        setIsAuthModalOpen(true);
+        openAuthModal('register');
         return;
     }
     setPostTripMode(mode);
@@ -529,8 +544,8 @@ const App: React.FC = () => {
         clearNotification={(id) => setNotifications(n => n.map(x => x.id === id ? {...x, read: true} : x))} 
         profile={profile}
         profileLoading={profileLoading}
-        onLoginClick={() => setIsAuthModalOpen(true)} 
-        onProfileClick={() => !user ? setIsAuthModalOpen(true) : setIsProfileModalOpen(true)}
+        onLoginClick={() => openAuthModal('login')} // Nút đăng nhập tường minh -> Vẫn là Login
+        onProfileClick={() => !user ? openAuthModal('register') : setIsProfileModalOpen(true)} // Click vào avatar placeholder -> Register để tạo tài khoản
         pendingOrderCount={pendingOrderCount}
         activeTripsCount={activeTripsCount}
         activeBookingsCount={activeBookingsCount}
@@ -538,7 +553,7 @@ const App: React.FC = () => {
         <div className="animate-slide-up">{renderContent()}</div>
       </Layout>
       {selectedTrip && <BookingModal trip={selectedTrip} profile={profile} isOpen={isBookingModalOpen} onClose={() => setIsBookingModalOpen(false)} onConfirm={handleConfirmBooking} />}
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} onSuccess={() => refreshAllData()} showAlert={showAlert} />
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} onSuccess={() => refreshAllData()} showAlert={showAlert} initialView={authModalView} />
       <ProfileManagement isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} profile={profile} onUpdate={() => user && fetchProfile(user.id)} stats={userStats} allTrips={trips} userBookings={bookings} onManageVehicles={() => setIsVehicleModalOpen(true)} />
       {selectedTrip && <TripDetailModal trip={selectedTrip} currentBookings={selectedTripBookings} profile={profile} isOpen={isTripDetailModalOpen} onClose={() => { setIsTripDetailModalOpen(false); refreshAllData(); }} onRefresh={() => fetchSelectedTripDetails(selectedTrip.id)} showAlert={showAlert} />}
       <VehicleManagementModal isOpen={isVehicleModalOpen} onClose={() => setIsVehicleModalOpen(false)} profile={profile} onVehiclesUpdated={refreshAllData} showAlert={showAlert} />
