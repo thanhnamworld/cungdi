@@ -270,32 +270,38 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    // Start of current month to determine "This Month" vs "Past"
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     for (const order of filteredOrders) {
       const trip = order.trips;
       if (!trip) continue;
       
-      const departureDate = new Date(trip.departure_time);
+      // Logic changed: Group by booking creation time (order.created_at)
+      const bookingDate = new Date(order.created_at);
       
+      // If trip is explicitly completed, move to history/past
       if (trip.status === TripStatus.COMPLETED) {
         past.push(order);
         continue;
       }
 
-      if (departureDate < startOfToday) {
-        past.push(order);
-      } else if (departureDate >= startOfToday && departureDate <= endOfToday) {
+      if (bookingDate >= startOfToday && bookingDate <= endOfToday) {
         today.push(order);
-      } else if (departureDate > endOfToday && departureDate <= endOfMonth) {
+      } else if (bookingDate >= startOfMonth && bookingDate < startOfToday) {
+        // Booked earlier this month (but not today)
         thisMonth.push(order);
+      } else if (bookingDate < startOfMonth) {
+        // Booked before this month
+        past.push(order);
       } else {
-        future.push(order);
+        // Fallback (e.g. slight future drift) -> Today
+        today.push(order);
       }
     }
     
-    // Sort past trips in reverse chronological
-    past.sort((a, b) => new Date(b.trips?.departure_time || '').getTime() - new Date(a.trips?.departure_time || '').getTime());
+    // Sort logic remains inherited from filteredOrders (default is Created At NEWEST)
+    // No need to re-sort explicitly unless needed
 
     return { today, thisMonth, future, past };
   }, [filteredOrders]);
