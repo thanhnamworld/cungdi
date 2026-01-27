@@ -1,5 +1,3 @@
-
-// FIX: Import useState from 'react' to resolve 'Cannot find name 'useState'' error.
 import React, { useState } from 'react';
 import {
   X, HelpCircle, Clock, Play, CheckCircle2, XCircle, AlertCircle, Timer,
@@ -319,55 +317,56 @@ const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose, profil
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-slate-50 w-full max-w-6xl h-[90vh] rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col md:flex-row border border-white/20 relative">
+      <div className="relative w-full max-w-6xl h-[90vh] animate-in zoom-in-95 duration-300">
+        <div className="bg-slate-50 w-full h-full rounded-[32px] shadow-2xl overflow-hidden flex flex-col md:flex-row border border-white/20">
+            {/* Sidebar */}
+            <aside className="w-full md:w-64 bg-white border-r border-slate-100 p-6 flex flex-col shrink-0">
+            <div className="flex items-center gap-3 mb-8">
+                <div className="p-2.5 bg-emerald-50 rounded-xl text-emerald-600">
+                <HelpCircle size={20} />
+                </div>
+                <div>
+                <h2 className="font-bold text-slate-800">Hướng dẫn</h2>
+                <p className="text-xs text-slate-400">{showTabs ? 'Theo vai trò' : `Dành cho ${singleRoleInfo.label}`}</p>
+                </div>
+            </div>
+            {showTabs ? (
+                <nav className="flex md:flex-col gap-1.5 overflow-x-auto pb-2 md:pb-0">
+                {visibleRoles.map(role => {
+                    const { label, icon: Icon, color } = getRoleInfo(role);
+                    const isActive = activeTab === role;
+                    return (
+                    <button 
+                        key={role} 
+                        onClick={() => setActiveTab(role)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left text-xs font-bold whitespace-nowrap ${isActive ? `bg-emerald-50 text-emerald-600 shadow-sm` : `text-slate-500 hover:bg-slate-100 hover:text-slate-800`}`}
+                    >
+                        <Icon size={16} className={isActive ? color : 'text-slate-400'} />
+                        {label}
+                    </button>
+                    );
+                })}
+                </nav>
+            ) : (
+                <div className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold bg-emerald-50 text-emerald-600 shadow-sm`}>
+                    <singleRoleInfo.icon size={16} className={singleRoleInfo.color} />
+                    {singleRoleInfo.label}
+                </div>
+            )}
+            </aside>
+
+            {/* Main Content */}
+            <main className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar">
+            {renderContent()}
+            </main>
+        </div>
         
         <button 
           onClick={onClose} 
-          className="absolute top-4 right-4 w-10 h-10 bg-white/80 backdrop-blur-md text-slate-500 rounded-full flex items-center justify-center shadow-lg hover:text-rose-500 hover:bg-white transition-all duration-300 z-[210] border border-slate-200"
+          className="absolute top-4 right-4 md:-top-4 md:-right-4 w-11 h-11 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-rose-500/30 hover:rotate-90 hover:bg-rose-600 transition-all duration-300 z-[210] border-2 border-white"
         >
-          <X size={20} strokeWidth={2.5} />
+          <X size={20} strokeWidth={3} />
         </button>
-
-        {/* Sidebar */}
-        <aside className="w-full md:w-64 bg-white border-r border-slate-100 p-6 flex flex-col shrink-0">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-2.5 bg-emerald-50 rounded-xl text-emerald-600">
-              <HelpCircle size={20} />
-            </div>
-            <div>
-              <h2 className="font-bold text-slate-800">Hướng dẫn</h2>
-              <p className="text-xs text-slate-400">{showTabs ? 'Theo vai trò' : `Dành cho ${singleRoleInfo.label}`}</p>
-            </div>
-          </div>
-          {showTabs ? (
-            <nav className="flex md:flex-col gap-1.5 overflow-x-auto pb-2 md:pb-0">
-              {visibleRoles.map(role => {
-                const { label, icon: Icon, color } = getRoleInfo(role);
-                const isActive = activeTab === role;
-                return (
-                  <button 
-                    key={role} 
-                    onClick={() => setActiveTab(role)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left text-xs font-bold whitespace-nowrap ${isActive ? `bg-emerald-50 text-emerald-600 shadow-sm` : `text-slate-500 hover:bg-slate-100 hover:text-slate-800`}`}
-                  >
-                    <Icon size={16} className={isActive ? color : 'text-slate-400'} />
-                    {label}
-                  </button>
-                );
-              })}
-            </nav>
-          ) : (
-            <div className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold bg-emerald-50 text-emerald-600 shadow-sm`}>
-                <singleRoleInfo.icon size={16} className={singleRoleInfo.color} />
-                {singleRoleInfo.label}
-            </div>
-          )}
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar">
-          {renderContent()}
-        </main>
       </div>
     </div>
   );
