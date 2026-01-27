@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Clock, MapPin, Trash2, Map as MapIcon, Navigation, ExternalLink, 
-  Calendar, AlertCircle, XCircle, Loader2, CheckCircle2, ArrowUpDown, Search, RefreshCcw, Car, ArrowRight, Ban, Phone, Ticket, ShoppingBag, ListChecks, FileText, User, LayoutGrid, LayoutList, Star, Sparkles, Radio, Users, Zap, Filter, ClipboardList, Info, ChevronDown, Check
+  Calendar, AlertCircle, XCircle, Loader2, CheckCircle2, ArrowUpDown, Search, RefreshCcw, Car, ArrowRight, Ban, Phone, Ticket, ShoppingBag, ListChecks, FileText, User, LayoutGrid, LayoutList, Star, Sparkles, Radio, Users, Zap, Filter, ClipboardList, Info, ChevronDown, Check, CalendarDays, Send, History
 } from 'lucide-react';
 import { Booking, Trip, TripStatus, Profile } from '../types'; 
 import { supabase } from '../lib/supabase';
@@ -25,10 +25,21 @@ const bookingStatusOptions = [
   { label: 'Xác nhận', value: 'CONFIRMED', style: 'text-emerald-600 bg-emerald-50 border-emerald-100', icon: CheckCircle2 },
   { label: 'Huỷ', value: 'CANCELLED', style: 'text-rose-600 bg-rose-50 border-rose-100', icon: XCircle }, 
   { label: 'Hết thời hạn', value: 'EXPIRED', style: 'text-slate-600 bg-slate-100 border-slate-200', icon: Ban },
-  // Add other statuses for display only if needed
   { label: 'Đã đón', value: 'PICKED_UP', style: 'text-cyan-600 bg-cyan-50 border-cyan-100', icon: MapPin },
   { label: 'Đang đi', value: 'ON_BOARD', style: 'text-blue-600 bg-blue-50 border-blue-100', icon: Radio },
 ];
+
+// Section Header Component
+const SectionHeader = ({ icon: Icon, title, count, color = 'text-emerald-600', bgColor = 'bg-emerald-100' }: any) => (
+  <div className="flex items-center gap-3 mt-6 mb-4">
+    <div className={`p-2 rounded-xl ${bgColor} ${color}`}>
+      <Icon size={18} />
+    </div>
+    <h3 className="text-lg font-bold text-slate-800">{title}</h3>
+    <span className="text-sm font-bold text-slate-400">({count})</span>
+    <hr className="flex-1 border-dashed border-slate-200" />
+  </div>
+);
 
 // Local Dropdown for Passenger to Cancel
 const PassengerBookingStatusSelector = ({ value, onChange, disabled }: { value: string, onChange: (status: string) => void, disabled?: boolean }) => {
@@ -38,7 +49,6 @@ const PassengerBookingStatusSelector = ({ value, onChange, disabled }: { value: 
   const currentStatus = bookingStatusOptions.find(s => s.value === value) || bookingStatusOptions[0];
   const cancelOption = bookingStatusOptions.find(s => s.value === 'CANCELLED');
 
-  // Allow cancel if not disabled and current status is PENDING or CONFIRMED
   const canCancel = !disabled && (value === 'PENDING' || value === 'CONFIRMED') && !!cancelOption;
 
   useEffect(() => {
@@ -67,12 +77,10 @@ const PassengerBookingStatusSelector = ({ value, onChange, disabled }: { value: 
       {isOpen && canCancel && cancelOption && (
         <div className="absolute top-full mt-1 left-0 w-32 bg-white rounded-xl shadow-xl border border-slate-100 z-[999] p-1 animate-in fade-in zoom-in-95 duration-150 origin-top-left">
           <div className="space-y-0.5">
-             {/* Current Status (Disabled look) */}
              <div className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg bg-slate-50 text-slate-500 cursor-default opacity-70">
                 <div className="flex items-center gap-2"><currentStatus.icon size={10} /> <span className="text-[10px] font-bold">{currentStatus.label}</span></div>
                 <Check size={10} className="text-emerald-500" />
              </div>
-             {/* Cancel Option */}
              <button 
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); onChange('CANCELLED'); setIsOpen(false); }}
                 className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg transition-all hover:bg-rose-50 text-rose-600"
@@ -120,12 +128,10 @@ const BookingsList: React.FC<BookingsListProps> = ({ bookings, trips, profile, o
     setSortConfig({ key, direction });
   };
 
-  // Helper to parse locations from note
   const extractLocations = (note?: string) => {
     if (!note) return { pickup: null, dropoff: null };
     const pickupMatch = note.match(/📍 Đón: (.*)/);
     const dropoffMatch = note.match(/🏁 Trả: (.*)/);
-    // Trim extra spaces and maybe remove parentheses if needed, but keeping details is usually good here
     return {
       pickup: pickupMatch ? pickupMatch[1].trim() : null,
       dropoff: dropoffMatch ? dropoffMatch[1].trim() : null
@@ -139,8 +145,6 @@ const BookingsList: React.FC<BookingsListProps> = ({ bookings, trips, profile, o
       const bookingCode = `S${booking.id.substring(0, 5).toUpperCase()}`;
       const tripCode = trip?.trip_code || (trip?.id ? `T${trip.id.substring(0, 5).toUpperCase()}` : '');
       const route = trip ? `${trip.origin_name} ${trip.dest_name}`.toLowerCase() : "";
-      
-      // Also search in specific address
       const { pickup, dropoff } = extractLocations(booking.note);
       const specificRoute = `${pickup || ''} ${dropoff || ''}`.toLowerCase();
 
@@ -190,6 +194,52 @@ const BookingsList: React.FC<BookingsListProps> = ({ bookings, trips, profile, o
     return posts;
   }, [trips, profile, searchTerm, sortOrder, statusFilter]);
 
+  // Grouping Logic
+  const groupedData = useMemo(() => {
+    const today: any[] = [];
+    const thisMonth: any[] = [];
+    const future: any[] = [];
+    const past: any[] = [];
+    
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const items = viewMode === 'BOOKINGS' ? sortedBookings : myPosts;
+
+    for (const item of items) {
+      let trip = viewMode === 'BOOKINGS' ? getTripFromBooking(item) : (item as Trip);
+      if (!trip) continue;
+
+      const departureDate = new Date(trip.departure_time);
+      
+      if (trip.status === TripStatus.COMPLETED) {
+        past.push(item);
+        continue;
+      }
+
+      if (departureDate < startOfToday) {
+        past.push(item);
+      } else if (departureDate >= startOfToday && departureDate <= endOfToday) {
+        today.push(item);
+      } else if (departureDate > endOfToday && departureDate <= endOfMonth) {
+        thisMonth.push(item);
+      } else {
+        future.push(item);
+      }
+    }
+    
+    // Sort past items in reverse chronological
+    past.sort((a, b) => {
+        const timeA = viewMode === 'BOOKINGS' ? getTripFromBooking(a)?.departure_time : (a as Trip).departure_time;
+        const timeB = viewMode === 'BOOKINGS' ? getTripFromBooking(b)?.departure_time : (b as Trip).departure_time;
+        return new Date(timeB || '').getTime() - new Date(timeA || '').getTime();
+    });
+
+    return { today, thisMonth, future, past };
+  }, [sortedBookings, myPosts, viewMode]);
+
   const handleCancelBooking = async (bookingId: string) => {
     showAlert({
       title: 'Xác nhận hủy đặt chỗ',
@@ -211,7 +261,6 @@ const BookingsList: React.FC<BookingsListProps> = ({ bookings, trips, profile, o
 
           await supabase.from('bookings').update({ status: 'CANCELLED' }).eq('id', bookingId);
           
-          // FIXED LOGIC: Only restore seats if status was CONFIRMED
           if (bookingToCancel.status === 'CONFIRMED') {
             const newAvailableSeats = trip.available_seats + bookingToCancel.seats_booked;
             let newTripStatus = trip.status;
@@ -246,6 +295,173 @@ const BookingsList: React.FC<BookingsListProps> = ({ bookings, trips, profile, o
       <div className={`flex items-center gap-1 ${textAlign === 'text-center' ? 'justify-center' : textAlign === 'text-right' ? 'justify-end' : ''}`}>{label} <ArrowUpDown size={8} className={`${sortConfig.key === sortKey ? 'text-indigo-600' : 'opacity-40'}`} /></div>
     </th>
   );
+
+  const renderBookingCard = (order: any) => {
+    const trip = getTripFromBooking(order);
+    if (!trip) return null;
+    const bookingCode = `S${order.id.substring(0, 5).toUpperCase()}`;
+    const depTime = trip.departure_time ? new Date(trip.departure_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
+    const depDate = trip.departure_time ? new Date(trip.departure_time).toLocaleDateString('vi-VN') : '--/--/----';
+    const arrTime = trip.arrival_time ? new Date(trip.arrival_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
+    const arrDate = trip.arrival_time ? new Date(trip.arrival_time).toLocaleDateString('vi-VN') : '--/--/----';
+    const isExpiredOrCancelled = order.status === 'EXPIRED' || order.status === 'CANCELLED';
+    const driverName = trip.driver_name || 'Đang cập nhật';
+    const vehicleRaw = trip.vehicle_info || '';
+    const vehicleParts = vehicleRaw.split(' (');
+    const licensePlate = vehicleParts[1] ? vehicleParts[1].replace(')', '') : '';
+    const isOngoing = trip.status === TripStatus.ON_TRIP;
+    const isUrgent = trip.status === TripStatus.URGENT;
+    const isPreparing = trip.status === TripStatus.PREPARING;
+    const isCompleted = trip.status === TripStatus.COMPLETED;
+    const createdAtDate = order.created_at ? new Date(order.created_at) : null;
+    const createdAtTime = createdAtDate ? createdAtDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+    const createdAtDay = createdAtDate ? createdAtDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--/--';
+    const isRequest = trip.is_request;
+
+    const avatarClass = isRequest ? 'bg-orange-600 shadow-orange-100' : 'bg-indigo-600 shadow-indigo-100';
+    const labelClass = isRequest ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100';
+    const labelText = isRequest ? 'Khách tìm xe' : 'Tài xế tìm khách';
+    const LabelIcon = isRequest ? Users : Car;
+    const progressBarClass = isRequest ? 'bg-orange-500' : 'bg-indigo-500';
+    const priceClass = isRequest ? 'text-orange-600' : 'text-indigo-600';
+    const seatLabel = isRequest ? 'Yêu cầu' : `Đặt ${order.seats_booked}/${trip.seats} ghế`;
+
+    const { pickup, dropoff } = extractLocations(order.note);
+    const displayPickup = pickup || trip.origin_name;
+    const displayDropoff = dropoff || trip.dest_name;
+    const isLoading = actionLoading === order.id;
+
+    return (
+      <div key={order.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative flex flex-col justify-between ${isOngoing ? 'border-blue-200 bg-blue-50/20' : isUrgent ? 'border-rose-400 bg-rose-50/20' : isPreparing ? 'border-amber-300 bg-amber-50/10' : 'border-slate-100'} ${isExpiredOrCancelled ? 'opacity-80' : ''}`} onClick={() => onViewTripDetails(trip)}>
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div onClick={(e) => e.stopPropagation()} className="z-20">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100 w-24">
+                  <Loader2 className="animate-spin text-indigo-500" size={12} />
+                </div>
+              ) : (
+                <PassengerBookingStatusSelector 
+                  value={order.status} 
+                  onChange={(newStatus) => {
+                    if (newStatus === 'CANCELLED') handleCancelBooking(order.id);
+                  }} 
+                  disabled={isExpiredOrCancelled || isOngoing || isCompleted} 
+                />
+              )}
+            </div>
+            <div className="flex flex-col items-center"><span className="text-[8px] font-bold text-slate-500">{seatLabel}</span><div className="w-16 bg-slate-100 h-1 rounded-full overflow-hidden mt-0.5"><div className={`h-full rounded-full transition-all duration-500 ${progressBarClass}`} style={{ width: '100%' }}></div></div></div>
+            <p className={`text-sm font-bold tracking-tight ${priceClass}`}>{new Intl.NumberFormat('vi-VN').format(order.total_price)}đ</p>
+          </div>
+          <div className="flex flex-col gap-2.5 items-start mb-3 min-h-[30px] justify-center">
+            <div className="flex items-center gap-2.5 w-full"><div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-lg shrink-0 ${avatarClass}`}>{driverName?.charAt(0)}</div><h4 className="font-bold text-slate-900 text-[13px] leading-tight truncate flex-1">{driverName}</h4></div>
+            <div className="flex items-center gap-1.5 min-w-0 flex-wrap"><span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[8px] font-bold truncate flex-shrink-0 min-w-0 ${labelClass}`}><LabelIcon size={9} /> {labelText}</span>{licensePlate && <div className="inline-flex items-center bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm self-start whitespace-nowrap flex-shrink-0 min-w-0 max-w-full"><CopyableCode code={licensePlate} className="text-[9px] font-black uppercase tracking-wider" label={licensePlate} /></div>}</div>
+          </div>
+          <div className="space-y-2.5 mb-3 relative">
+            <div className="absolute left-[7px] top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-indigo-100/70 via-slate-100/70 to-emerald-100/70"></div>
+            <div className="flex items-center gap-3 relative z-10"><div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-indigo-100/70 border-indigo-200/50 shadow-indigo-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-indigo-600"></div></div><div className="flex-1 min-w-0"><p className="font-bold text-slate-700 text-[12px] truncate leading-tight" title={displayPickup}>{displayPickup}</p><div className="flex items-center gap-1.5 mt-1"><div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-100"><Clock size={8} /> <span className="text-[9px] font-black">{depTime}</span></div><div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{depDate}</span></div></div></div></div>
+            <div className="flex items-center gap-3 relative z-10"><div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-emerald-100/70 border-emerald-200/50 shadow-emerald-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div></div><div className="flex-1 min-w-0"><p className="font-bold text-slate-700 text-[12px] truncate leading-tight" title={displayDropoff}>{displayDropoff}</p><div className="flex items-center gap-1.5 mt-1"><div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-md border border-emerald-100 shadow-sm"><Clock size={8} /> <span className="text-[9px] font-black">{arrTime}</span></div><div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{arrDate}</span></div></div></div></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 items-center pt-3 border-t border-slate-100 mt-auto">
+          <div className="flex items-center gap-2"><CopyableCode code={bookingCode} className="text-[9px] font-black bg-cyan-50 text-cyan-700 px-2 py-0.5 border border-cyan-100 rounded uppercase" label={bookingCode} /></div>
+          <div className="flex justify-center gap-2">
+            <button onClick={(e) => { e.stopPropagation(); onViewTripDetails(trip); }} className="px-2 py-1 rounded-lg transition-all border shadow-sm flex items-center gap-1.5 bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100"><Info size={10} /><span className="text-[10px] font-bold">Chi tiết</span></button>
+          </div>
+          <div className="flex justify-end items-center gap-1 text-[9px] font-bold text-slate-400"><Clock size={10} className="shrink-0" /><span>{createdAtTime} {createdAtDay}</span></div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPostCard = (trip: any) => {
+    const isRequest = trip.is_request;
+    const bookedSeats = trip.seats - trip.available_seats;
+    const fillPercent = trip.seats > 0 ? (bookedSeats / trip.seats) * 100 : 0;
+    let fillBarColor: string;
+    if (isRequest) {
+      const bookingsCount = trip.bookings_count || 0;
+      fillBarColor = bookingsCount === 0 ? 'bg-slate-200' : bookingsCount === 1 ? 'bg-emerald-500' : 'bg-rose-500';
+    } else {
+      if (bookedSeats <= 0) fillBarColor = 'bg-slate-200';
+      else if (fillPercent < 50) fillBarColor = 'bg-emerald-500';
+      else if (fillPercent < 100) fillBarColor = 'bg-amber-500';
+      else fillBarColor = 'bg-rose-500';
+    }
+    
+    const depTime = new Date(trip.departure_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
+    const depDate = new Date(trip.departure_time).toLocaleDateString('vi-VN');
+    const arrivalDateObj = trip.arrival_time ? new Date(trip.arrival_time) : null;
+    const arrTime = arrivalDateObj ? arrivalDateObj.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
+    const arrDate = arrivalDateObj ? arrivalDateObj.toLocaleDateString('vi-VN') : '--/--/----';
+    const tripCode = trip.trip_code || `T${trip.id.substring(0, 5).toUpperCase()}`;
+    const isCompleted = trip.status === TripStatus.COMPLETED;
+    const isCancelled = trip.status === TripStatus.CANCELLED;
+    const isOngoing = trip.status === TripStatus.ON_TRIP;
+    const createdAt = trip.created_at ? new Date(trip.created_at) : null;
+    const createdAtTime = createdAt ? createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+    const createdAtDay = createdAt ? createdAt.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--/--';
+    
+    const vehicleConfig = getVehicleConfig(trip.vehicle_info);
+    const VIcon = isRequest ? Users : vehicleConfig.icon;
+
+    return (
+      <div key={trip.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-full group ${isOngoing ? 'border-blue-200 bg-blue-50/20' : 'border-slate-100'} ${isCompleted || isCancelled ? 'opacity-80' : ''}`} onClick={() => onViewTripDetails(trip)}>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+                <div onClick={(e) => e.stopPropagation()} className="z-20">
+                  {actionLoading === trip.id ? (
+                      <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100 w-28"><Loader2 className="animate-spin text-indigo-500" size={12} /></div>
+                  ) : (
+                      <TripStatusSelector value={trip.status} disabled={isCompleted || isCancelled} onChange={(newStatus) => handleUpdateTripStatus(trip.id, newStatus)} />
+                  )}
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-[8px] font-bold text-slate-500">{isRequest ? `${trip.seats === 7 ? 'Bao xe' : `${trip.seats} ghế`} (${trip.bookings_count || 0} xe nhận)` : `Còn ${trip.available_seats}/${trip.seats} ghế`}</span>
+                  <div className="w-16 bg-slate-100 h-1 rounded-full overflow-hidden mt-0.5">
+                    <div className={`h-full rounded-full transition-all duration-500 ${fillBarColor}`} style={{ width: isRequest ? '100%' : `${fillPercent}%` }}></div>
+                  </div>
+                </div>
+                <p className={`text-sm font-bold tracking-tight ${isRequest ? 'text-orange-600' : 'text-indigo-600'}`}>{trip.price === 0 ? 'Thoả thuận' : new Intl.NumberFormat('vi-VN').format(trip.price) + 'đ'}</p>
+            </div>
+
+            <div className="flex flex-col gap-2.5 items-start mb-3 min-h-[30px] justify-center">
+                <div className="flex items-center gap-1.5 w-full">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0 ${isRequest ? 'bg-orange-600' : 'bg-indigo-600'}`}>{trip.driver_name?.charAt(0)}</div>
+                  <h4 className="font-bold text-slate-900 text-[13px] leading-tight truncate flex-1">{trip.driver_name}</h4>
+                </div>
+                <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                  <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[8px] font-bold truncate ${isRequest ? 'bg-orange-50 text-orange-600 border-orange-100' : vehicleConfig.style}`}><VIcon size={9} /> {isRequest ? (trip.vehicle_info || 'Cần tìm xe') : trip.vehicle_info.split(' (')[0]}</span>
+                </div>
+            </div>
+
+            <div className="space-y-2.5 mb-3 relative">
+                <div className="absolute left-[7px] top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-indigo-100/70 via-slate-100/70 to-emerald-100/70"></div>
+                <div className="flex items-center gap-3 relative z-10"><div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-indigo-100/70 border-indigo-200/50 shadow-indigo-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-indigo-600"></div></div><div className="flex-1"><p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.origin_name}</p><div className="flex items-center gap-1.5 mt-1"><div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-100"><Clock size={8} /> <span className="text-[9px] font-black">{depTime}</span></div><div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{depDate}</span></div></div></div></div>
+                <div className="flex items-center gap-3 relative z-10"><div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-emerald-100/70 border-emerald-200/50 shadow-emerald-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div></div><div className="flex-1"><p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.dest_name}</p><div className="flex items-center gap-1.5 mt-1"><div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-md border border-emerald-100 shadow-sm"><Clock size={8} /> <span className="text-[9px] font-black">{arrTime}</span></div><div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{arrDate}</span></div></div></div></div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 items-center pt-3 border-t border-slate-100 mt-auto">
+            <div className="flex items-center gap-2"><div className="inline-flex items-center bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md border border-rose-100 shadow-sm"><CopyableCode code={tripCode} className="text-[9px] font-black" label={tripCode} /></div></div>
+            <div className="flex justify-center"><button onClick={(e) => { e.stopPropagation(); onViewTripDetails(trip); }} className="px-2 py-1 rounded-lg transition-all border shadow-sm flex items-center gap-1.5 bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100"><Info size={10} /><span className="text-[10px] font-bold">Chi tiết</span></button></div>
+            <div className="flex justify-end items-center gap-1 text-[9px] font-bold text-slate-400"><Clock size={10} className="shrink-0" /><span>{createdAtTime} {createdAtDay}</span></div>
+          </div>
+      </div>
+    );
+  };
+
+  const renderGroup = (group: any[], title: string, icon: React.ElementType, colors: any, isBooking: boolean) => {
+    if (group.length === 0) return null;
+    return (
+        <section className="space-y-5">
+            <SectionHeader icon={icon} title={title} count={group.length} color={colors.color} bgColor={colors.bgColor} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 pb-5">
+                {group.map(item => isBooking ? renderBookingCard(item) : renderPostCard(item))}
+            </div>
+        </section>
+    );
+  };
 
   return (
     <div className="space-y-4 animate-slide-up max-w-[1600px] mx-auto">
@@ -318,181 +534,139 @@ const BookingsList: React.FC<BookingsListProps> = ({ bookings, trips, profile, o
       </div>
       
       {viewMode === 'BOOKINGS' && (
-        <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 pb-20 ${layoutMode === 'list' ? 'md:hidden' : ''}`}>
-          {sortedBookings.length > 0 ? sortedBookings.map(order => {
-            const trip = getTripFromBooking(order);
-            if (!trip) return null;
-            const bookingCode = `S${order.id.substring(0, 5).toUpperCase()}`;
-            const depTime = trip.departure_time ? new Date(trip.departure_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
-            const depDate = trip.departure_time ? new Date(trip.departure_time).toLocaleDateString('vi-VN') : '--/--/----';
-            const arrTime = trip.arrival_time ? new Date(trip.arrival_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
-            const arrDate = trip.arrival_time ? new Date(trip.arrival_time).toLocaleDateString('vi-VN') : '--/--/----';
-            const statusObj = bookingStatusOptions.find(s => s.value === order.status) || bookingStatusOptions[0];
-            const isExpiredOrCancelled = order.status === 'EXPIRED' || order.status === 'CANCELLED';
-            const driverName = trip.driver_name || 'Đang cập nhật';
-            const vehicleRaw = trip.vehicle_info || '';
-            const vehicleParts = vehicleRaw.split(' (');
-            const licensePlate = vehicleParts[1] ? vehicleParts[1].replace(')', '') : '';
-            const isOngoing = trip.status === TripStatus.ON_TRIP;
-            const isUrgent = trip.status === TripStatus.URGENT;
-            const isPreparing = trip.status === TripStatus.PREPARING;
-            const isCompleted = trip.status === TripStatus.COMPLETED;
-            const createdAtDate = order.created_at ? new Date(order.created_at) : null;
-            const createdAtTime = createdAtDate ? createdAtDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-            const createdAtDay = createdAtDate ? createdAtDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--/--';
-            const isRequest = trip.is_request;
-
-            const avatarClass = isRequest ? 'bg-orange-600 shadow-orange-100' : 'bg-indigo-600 shadow-indigo-100';
-            const labelClass = isRequest ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100';
-            const labelText = isRequest ? 'Khách tìm xe' : 'Tài xế tìm khách';
-            const LabelIcon = isRequest ? Users : Car;
-            const progressBarClass = isRequest ? 'bg-orange-500' : 'bg-indigo-500';
-            const priceClass = isRequest ? 'text-orange-600' : 'text-indigo-600';
-            const seatLabel = isRequest ? 'Yêu cầu' : `Đặt ${order.seats_booked}/${trip.seats} ghế`;
-
-            // Extract specific locations
-            const { pickup, dropoff } = extractLocations(order.note);
-            const displayPickup = pickup || trip.origin_name;
-            const displayDropoff = dropoff || trip.dest_name;
-
-            const isLoading = actionLoading === order.id;
-
-            return (
-              <div key={order.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative flex flex-col justify-between ${isOngoing ? 'border-blue-200 bg-blue-50/20' : isUrgent ? 'border-rose-400 bg-rose-50/20' : isPreparing ? 'border-amber-300 bg-amber-50/10' : 'border-slate-100'} ${isExpiredOrCancelled ? 'opacity-80' : ''}`} onClick={() => onViewTripDetails(trip)}>
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <div onClick={(e) => e.stopPropagation()} className="z-20">
-                      {isLoading ? (
-                        <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100 w-24">
-                          <Loader2 className="animate-spin text-indigo-500" size={12} />
-                        </div>
-                      ) : (
-                        <PassengerBookingStatusSelector 
-                          value={order.status} 
-                          onChange={(newStatus) => {
-                            if (newStatus === 'CANCELLED') handleCancelBooking(order.id);
-                          }} 
-                          disabled={isExpiredOrCancelled || isOngoing || isCompleted} 
-                        />
-                      )}
-                    </div>
-                    <div className="flex flex-col items-center"><span className="text-[8px] font-bold text-slate-500">{seatLabel}</span><div className="w-16 bg-slate-100 h-1 rounded-full overflow-hidden mt-0.5"><div className={`h-full rounded-full transition-all duration-500 ${progressBarClass}`} style={{ width: '100%' }}></div></div></div>
-                    <p className={`text-sm font-bold tracking-tight ${priceClass}`}>{new Intl.NumberFormat('vi-VN').format(order.total_price)}đ</p>
-                  </div>
-                  <div className="flex flex-col gap-2.5 items-start mb-3 min-h-[30px] justify-center">
-                    <div className="flex items-center gap-2.5 w-full"><div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-lg shrink-0 ${avatarClass}`}>{driverName?.charAt(0)}</div><h4 className="font-bold text-slate-900 text-[13px] leading-tight truncate flex-1">{driverName}</h4></div>
-                    <div className="flex items-center gap-1.5 min-w-0 flex-wrap"><span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[8px] font-bold truncate flex-shrink-0 min-w-0 ${labelClass}`}><LabelIcon size={9} /> {labelText}</span>{licensePlate && <div className="inline-flex items-center bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm self-start whitespace-nowrap flex-shrink-0 min-w-0 max-w-full"><CopyableCode code={licensePlate} className="text-[9px] font-black uppercase tracking-wider" label={licensePlate} /></div>}</div>
-                  </div>
-                  <div className="space-y-2.5 mb-3 relative">
-                    <div className="absolute left-[7px] top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-indigo-100/70 via-slate-100/70 to-emerald-100/70"></div>
-                    <div className="flex items-center gap-3 relative z-10"><div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-indigo-100/70 border-indigo-200/50 shadow-indigo-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-indigo-600"></div></div><div className="flex-1 min-w-0"><p className="font-bold text-slate-700 text-[12px] truncate leading-tight" title={displayPickup}>{displayPickup}</p><div className="flex items-center gap-1.5 mt-1"><div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-100"><Clock size={8} /> <span className="text-[9px] font-black">{depTime}</span></div><div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{depDate}</span></div></div></div></div>
-                    <div className="flex items-center gap-3 relative z-10"><div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-emerald-100/70 border-emerald-200/50 shadow-emerald-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div></div><div className="flex-1 min-w-0"><p className="font-bold text-slate-700 text-[12px] truncate leading-tight" title={displayDropoff}>{displayDropoff}</p><div className="flex items-center gap-1.5 mt-1"><div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-md border border-emerald-100 shadow-sm"><Clock size={8} /> <span className="text-[9px] font-black">{arrTime}</span></div><div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{arrDate}</span></div></div></div></div>
-                  </div>
+        <>
+          {/* Grid View with Groups */}
+          <div className={`space-y-8 ${layoutMode === 'list' ? 'md:hidden' : ''}`}>
+             {sortedBookings.length > 0 ? (
+                <>
+                  {renderGroup(groupedData.today, 'Hôm nay', CalendarDays, { color: 'text-emerald-600', bgColor: 'bg-emerald-100' }, true)}
+                  {renderGroup(groupedData.thisMonth, 'Trong tháng này', Calendar, { color: 'text-sky-600', bgColor: 'bg-sky-100' }, true)}
+                  {renderGroup(groupedData.future, 'Tương lai', Send, { color: 'text-indigo-600', bgColor: 'bg-indigo-100' }, true)}
+                  {renderGroup(groupedData.past, 'Lịch sử', History, { color: 'text-slate-500', bgColor: 'bg-slate-100' }, true)}
+                </>
+             ) : (
+                <div className="col-span-full p-10 text-center bg-white rounded-[24px] border border-dashed border-slate-200">
+                   <Ticket size={32} className="mx-auto text-slate-300 mb-2" />
+                   <p className="text-xs font-bold text-slate-400">Chưa có lịch sử chuyến đi</p>
                 </div>
-                <div className="grid grid-cols-3 items-center pt-3 border-t border-slate-100 mt-auto">
-                  <div className="flex items-center gap-2"><CopyableCode code={bookingCode} className="text-[9px] font-black bg-cyan-50 text-cyan-700 px-2 py-0.5 border border-cyan-100 rounded uppercase" label={bookingCode} /></div>
-                  <div className="flex justify-center gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); onViewTripDetails(trip); }} className="px-2 py-1 rounded-lg transition-all border shadow-sm flex items-center gap-1.5 bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100"><Info size={10} /><span className="text-[10px] font-bold">Chi tiết</span></button>
-                  </div>
-                  <div className="flex justify-end items-center gap-1 text-[9px] font-bold text-slate-400"><Clock size={10} className="shrink-0" /><span>{createdAtTime} {createdAtDay}</span></div>
-                </div>
-              </div>
-            );
-          }) : (
-            <div className="col-span-full p-10 text-center bg-white rounded-[24px] border border-dashed border-slate-200"><Ticket size={32} className="mx-auto text-slate-300 mb-2" /><p className="text-xs font-bold text-slate-400">Chưa có lịch sử chuyến đi</p></div>
-          )}
-        </div>
+             )}
+          </div>
+
+          {/* Desktop Table View (Hidden in Grid Mode) */}
+          <div className={`hidden md:${layoutMode === 'list' ? 'block' : 'hidden'} bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden`}>
+              <table className="w-full text-left border-collapse">
+              <thead>
+                  <tr className="bg-white border-b border-slate-100 sticky top-0 z-10">
+                  <SortHeader label="Mã đơn & Thời gian" width="14%" />
+                  <SortHeader label="Hành khách" width="18%" />
+                  <SortHeader label="Trạng thái đơn" width="16%" textAlign="text-center" />
+                  <SortHeader label="Điểm đón" width="18%" />
+                  <SortHeader label="Điểm đến" width="18%" />
+                  <SortHeader label="Giá" width="10%" textAlign="text-right" />
+                  </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                  {sortedBookings.length > 0 ? sortedBookings.map((booking: any) => {
+                    const trip = getTripFromBooking(booking);
+                    if (!trip) return null;
+                    const bookingCode = `S${booking.id.substring(0, 5).toUpperCase()}`;
+                    const isLoading = actionLoading === booking.id;
+                    const createdAt = booking.created_at ? new Date(booking.created_at) : null;
+                    const bTime = createdAt ? createdAt.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
+                    const bDate = createdAt ? createdAt.toLocaleDateString('vi-VN') : '--/--/----';
+                    const { pickup, dropoff } = extractLocations(booking.note);
+                    const displayPickup = pickup || trip.origin_name;
+                    const displayDropoff = dropoff || trip.dest_name;
+                    const personName = booking.profiles?.full_name || (trip.is_request ? 'Tài xế' : 'Khách vãng lai');
+                    const priceColor = trip.is_request ? 'text-indigo-600' : 'text-emerald-600';
+                    const displayPhone = booking.passenger_phone ? booking.passenger_phone.replace(/^\+?84/, '0') : 'N/A';
+                    const isFinalStatus = booking.status === 'EXPIRED' || booking.status === 'CANCELLED';
+
+                    return (
+                        <tr key={booking.id} className={`hover:bg-slate-50/50 transition-colors group cursor-pointer ${isFinalStatus ? 'opacity-80' : ''}`} onClick={() => onViewTripDetails(trip)}>
+                        <td className="px-4 py-4">
+                            <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-black text-amber-600">{bTime}</span>
+                                <span className="text-[10px] font-bold text-slate-400">{bDate}</span>
+                            </div>
+                            <div className="inline-flex items-center bg-cyan-50 text-cyan-700 px-2 py-0.5 rounded-md border border-cyan-200 self-start">
+                                <CopyableCode code={bookingCode} className="text-[10px] font-black" label={bookingCode} />
+                            </div>
+                            </div>
+                        </td>
+                        <td className="px-4 py-4">
+                            <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-1.5">
+                                <div className={`h-[22px] w-[22px] rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 border ${trip.is_request ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                                {personName.charAt(0)}
+                                </div>
+                                <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{personName}</p>
+                                </div>
+                            <div className="flex items-center gap-1.5">
+                                {booking.passenger_phone && (
+                                <a href={`tel:${booking.passenger_phone}`} onClick={(e) => e.stopPropagation()} className="w-5 h-5 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100 shrink-0">
+                                    <Phone size={10} />
+                                </a>
+                                )}
+                                <CopyableCode code={booking.passenger_phone || ''} className="text-[10px] font-bold text-indigo-600 truncate" label={displayPhone} />
+                            </div>
+                            </div>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                            <div className="w-32 mx-auto" onClick={(e) => e.stopPropagation()}>
+                            {isLoading ? (
+                                <Loader2 className="animate-spin text-indigo-500" size={14} />
+                            ) : (
+                                <PassengerBookingStatusSelector 
+                                  value={booking.status} 
+                                  onChange={(newStatus) => {
+                                    if (newStatus === 'CANCELLED') handleCancelBooking(booking.id);
+                                  }} 
+                                  disabled={isFinalStatus || trip.status === TripStatus.ON_TRIP || trip.status === TripStatus.COMPLETED} 
+                                />
+                            )}
+                            </div>
+                        </td>
+                        <td className="px-4 py-4">
+                            <div className="flex flex-col gap-1.5">
+                                <p className="text-[11px] font-bold text-slate-800 truncate leading-tight mt-0.5 pr-1" title={displayPickup}>
+                                {displayPickup}
+                                </p>
+                            </div>
+                        </td>
+                        <td className="px-4 py-4">
+                            <div className="flex flex-col gap-1.5">
+                                <p className="text-[11px] font-bold text-emerald-600 truncate leading-tight mt-0.5 pr-1" title={displayDropoff}>
+                                {displayDropoff}
+                                </p>
+                            </div>
+                        </td>
+                        <td className="px-4 py-4 text-right pr-6">
+                            <p className={`text-[11px] font-black ${priceColor}`}>{new Intl.NumberFormat('vi-VN').format(booking.total_price)}đ</p>
+                            <p className="text-[9px] font-bold text-slate-400">{trip.is_request ? `${trip.seats} ghế` : `${booking.seats_booked} ghế`}</p>
+                        </td>
+                        </tr>
+                    );
+                  }) : (
+                    <tr><td colSpan={6} className="px-6 py-20 text-center italic text-slate-500 text-[11px] font-bold">Chưa có dữ liệu</td></tr>
+                  )}
+              </tbody>
+              </table>
+          </div>
+        </>
       )}
 
       {viewMode === 'MY_POSTS' && (
-         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 pb-20">
-            {myPosts.length > 0 ? myPosts.map(trip => {
-               const isRequest = trip.is_request;
-               const bookedSeats = trip.seats - trip.available_seats;
-               const fillPercent = trip.seats > 0 ? (bookedSeats / trip.seats) * 100 : 0;
-               let fillBarColor: string;
-               if (isRequest) {
-                  const bookingsCount = trip.bookings_count || 0;
-                  if (bookingsCount === 0) {
-                     fillBarColor = 'bg-slate-200';
-                  } else if (bookingsCount === 1) {
-                     fillBarColor = 'bg-emerald-500';
-                  } else {
-                     fillBarColor = 'bg-rose-500';
-                  }
-               } else {
-                  if (bookedSeats <= 0) {
-                     fillBarColor = 'bg-slate-200';
-                  } else if (fillPercent < 50) {
-                     fillBarColor = 'bg-emerald-500';
-                  } else if (fillPercent < 100) {
-                     fillBarColor = 'bg-amber-500';
-                  } else {
-                     fillBarColor = 'bg-rose-500';
-                  }
-               }
-               
-               const depTime = new Date(trip.departure_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
-               const depDate = new Date(trip.departure_time).toLocaleDateString('vi-VN');
-               const arrivalDateObj = trip.arrival_time ? new Date(trip.arrival_time) : null;
-               const arrTime = arrivalDateObj ? arrivalDateObj.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
-               const arrDate = arrivalDateObj ? arrivalDateObj.toLocaleDateString('vi-VN') : '--/--/----';
-               const tripCode = trip.trip_code || `T${trip.id.substring(0, 5).toUpperCase()}`;
-               const isCompleted = trip.status === TripStatus.COMPLETED;
-               const isCancelled = trip.status === TripStatus.CANCELLED;
-               const isOngoing = trip.status === TripStatus.ON_TRIP;
-               const createdAt = trip.created_at ? new Date(trip.created_at) : null;
-               const createdAtTime = createdAt ? createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-               const createdAtDay = createdAt ? createdAt.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--/--';
-               
-               const vehicleConfig = getVehicleConfig(trip.vehicle_info);
-               const VIcon = isRequest ? Users : vehicleConfig.icon;
-
-               return (
-                  <div key={trip.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-full group ${isOngoing ? 'border-blue-200 bg-blue-50/20' : 'border-slate-100'} ${isCompleted || isCancelled ? 'opacity-80' : ''}`} onClick={() => onViewTripDetails(trip)}>
-                     <div>
-                        <div className="flex items-center justify-between mb-3">
-                           <div onClick={(e) => e.stopPropagation()} className="z-20">
-                              {actionLoading === trip.id ? (
-                                 <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100 w-28"><Loader2 className="animate-spin text-indigo-500" size={12} /></div>
-                              ) : (
-                                 <TripStatusSelector value={trip.status} disabled={isCompleted || isCancelled} onChange={(newStatus) => handleUpdateTripStatus(trip.id, newStatus)} />
-                              )}
-                           </div>
-                           <div className="flex flex-col items-center">
-                              <span className="text-[8px] font-bold text-slate-500">{isRequest ? `${trip.seats === 7 ? 'Bao xe' : `${trip.seats} ghế`} (${trip.bookings_count || 0} xe nhận)` : `Còn ${trip.available_seats}/${trip.seats} ghế`}</span>
-                              <div className="w-16 bg-slate-100 h-1 rounded-full overflow-hidden mt-0.5">
-                                <div className={`h-full rounded-full transition-all duration-500 ${fillBarColor}`} style={{ width: isRequest ? '100%' : `${fillPercent}%` }}></div>
-                              </div>
-                           </div>
-                           <p className={`text-sm font-bold tracking-tight ${isRequest ? 'text-orange-600' : 'text-indigo-600'}`}>{trip.price === 0 ? 'Thoả thuận' : new Intl.NumberFormat('vi-VN').format(trip.price) + 'đ'}</p>
-                        </div>
-
-                        <div className="flex flex-col gap-2.5 items-start mb-3 min-h-[30px] justify-center">
-                           <div className="flex items-center gap-1.5 w-full">
-                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0 ${isRequest ? 'bg-orange-600' : 'bg-indigo-600'}`}>{trip.driver_name?.charAt(0)}</div>
-                              <h4 className="font-bold text-slate-900 text-[13px] leading-tight truncate flex-1">{trip.driver_name}</h4>
-                           </div>
-                           <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-                              <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[8px] font-bold truncate ${isRequest ? 'bg-orange-50 text-orange-600 border-orange-100' : vehicleConfig.style}`}><VIcon size={9} /> {isRequest ? (trip.vehicle_info || 'Cần tìm xe') : trip.vehicle_info.split(' (')[0]}</span>
-                           </div>
-                        </div>
-
-                        <div className="space-y-2.5 mb-3 relative">
-                           <div className="absolute left-[7px] top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-indigo-100/70 via-slate-100/70 to-emerald-100/70"></div>
-                           <div className="flex items-center gap-3 relative z-10"><div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-indigo-100/70 border-indigo-200/50 shadow-indigo-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-indigo-600"></div></div><div className="flex-1"><p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.origin_name}</p><div className="flex items-center gap-1.5 mt-1"><div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-100"><Clock size={8} /> <span className="text-[9px] font-black">{depTime}</span></div><div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{depDate}</span></div></div></div></div>
-                           <div className="flex items-center gap-3 relative z-10"><div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-emerald-100/70 border-emerald-200/50 shadow-emerald-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div></div><div className="flex-1"><p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.dest_name}</p><div className="flex items-center gap-1.5 mt-1"><div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-md border border-emerald-100 shadow-sm"><Clock size={8} /> <span className="text-[9px] font-black">{arrTime}</span></div><div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{arrDate}</span></div></div></div></div>
-                        </div>
-                     </div>
-
-                     <div className="grid grid-cols-3 items-center pt-3 border-t border-slate-100 mt-auto">
-                        <div className="flex items-center gap-2"><div className="inline-flex items-center bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md border border-rose-100 shadow-sm"><CopyableCode code={tripCode} className="text-[9px] font-black" label={tripCode} /></div></div>
-                        <div className="flex justify-center"><button onClick={(e) => { e.stopPropagation(); onViewTripDetails(trip); }} className="px-2 py-1 rounded-lg transition-all border shadow-sm flex items-center gap-1.5 bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100"><Info size={10} /><span className="text-[10px] font-bold">Chi tiết</span></button></div>
-                        <div className="flex justify-end items-center gap-1 text-[9px] font-bold text-slate-400"><Clock size={10} className="shrink-0" /><span>{createdAtTime} {createdAtDay}</span></div>
-                     </div>
-                  </div>
-               );
-            }) : (
+         <div className="space-y-8 pb-20">
+            {myPosts.length > 0 ? (
+                <>
+                  {renderGroup(groupedData.today, 'Hôm nay', CalendarDays, { color: 'text-emerald-600', bgColor: 'bg-emerald-100' }, false)}
+                  {renderGroup(groupedData.thisMonth, 'Trong tháng này', Calendar, { color: 'text-sky-600', bgColor: 'bg-sky-100' }, false)}
+                  {renderGroup(groupedData.future, 'Tương lai', Send, { color: 'text-indigo-600', bgColor: 'bg-indigo-100' }, false)}
+                  {renderGroup(groupedData.past, 'Lịch sử', History, { color: 'text-slate-500', bgColor: 'bg-slate-100' }, false)}
+                </>
+            ) : (
                <div className="col-span-full py-20 text-center bg-white rounded-[32px] border border-dashed border-slate-200"><FileText size={40} className="mx-auto text-slate-300 mb-3" /><p className="text-xs font-bold text-slate-400 uppercase">Bạn chưa đăng tin nào</p></div>
             )}
          </div>

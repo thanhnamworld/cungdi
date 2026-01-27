@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
-  ShoppingBag, Search, CheckCircle2, XCircle, Clock, RefreshCcw, Loader2, ArrowUpDown, Navigation, Car, User, ArrowRight, Phone, DollarSign, ChevronDown, Check, X, AlertCircle, AlertTriangle, Timer, Ban, Calendar, Filter, Hash, Play, MapPin, LayoutList, LayoutGrid, Star, ClipboardList, Info, Users, Layers, MessageSquareQuote
+  ShoppingBag, Search, CheckCircle2, XCircle, Clock, RefreshCcw, Loader2, ArrowUpDown, Navigation, Car, User, ArrowRight, Phone, DollarSign, ChevronDown, Check, X, AlertCircle, AlertTriangle, Timer, Ban, Calendar, Filter, Hash, Play, MapPin, LayoutList, LayoutGrid, Star, ClipboardList, Info, Users, Layers, MessageSquareQuote, CalendarDays, Send, History
 } from 'lucide-react';
 import { Booking, Profile, Trip, TripStatus } from '../types';
 import { supabase } from '../lib/supabase';
@@ -20,6 +20,18 @@ export const statusOptions = [
   { label: 'Huỷ', value: 'CANCELLED', style: 'text-rose-600 bg-rose-50 border-rose-100', icon: XCircle },
   { label: 'Hết thời hạn', value: 'EXPIRED', style: 'text-slate-500 bg-slate-100 border-slate-200', icon: Ban },
 ];
+
+// Section Header Component (Shared style)
+const SectionHeader = ({ icon: Icon, title, count, color = 'text-emerald-600', bgColor = 'bg-emerald-100' }: any) => (
+  <div className="flex items-center gap-3 mt-6 mb-4">
+    <div className={`p-2 rounded-xl ${bgColor} ${color}`}>
+      <Icon size={18} />
+    </div>
+    <h3 className="text-lg font-bold text-slate-800">{title}</h3>
+    <span className="text-sm font-bold text-slate-400">({count})</span>
+    <hr className="flex-1 border-dashed border-slate-200" />
+  </div>
+);
 
 export const TableSkeleton = ({ rows = 5, cols = 6 }: { rows?: number, cols?: number }) => (
   <tbody className="animate-pulse">
@@ -248,6 +260,46 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
     return filtered;
   }, [allBookings, searchTerm, statusFilter, timeFilter, vehicleFilter, requestTypeFilter, sortOrder, sortConfig]);
 
+  // Grouping Logic
+  const groupedOrders = useMemo(() => {
+    const today: any[] = [];
+    const thisMonth: any[] = [];
+    const future: any[] = [];
+    const past: any[] = [];
+    
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    for (const order of filteredOrders) {
+      const trip = order.trips;
+      if (!trip) continue;
+      
+      const departureDate = new Date(trip.departure_time);
+      
+      if (trip.status === TripStatus.COMPLETED) {
+        past.push(order);
+        continue;
+      }
+
+      if (departureDate < startOfToday) {
+        past.push(order);
+      } else if (departureDate >= startOfToday && departureDate <= endOfToday) {
+        today.push(order);
+      } else if (departureDate > endOfToday && departureDate <= endOfMonth) {
+        thisMonth.push(order);
+      } else {
+        future.push(order);
+      }
+    }
+    
+    // Sort past trips in reverse chronological
+    past.sort((a, b) => new Date(b.trips?.departure_time || '').getTime() - new Date(a.trips?.departure_time || '').getTime());
+
+    return { today, thisMonth, future, past };
+  }, [filteredOrders]);
+
   const handleUpdateStatus = async (bookingId: string, newStatus: string) => {
     setActionLoading(bookingId);
     try {
@@ -290,7 +342,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
       else if (oldBookingStatus === 'CONFIRMED' && newStatus !== 'CONFIRMED') {
         newAvailableSeats = trip.available_seats + seatsBooked;
       }
-      // PENDING/CANCELLED changes do not affect seats if old status wasn't CONFIRMED.
       
       if (newAvailableSeats < 0) {
         showAlert({
@@ -334,6 +385,166 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
       <div className={`flex items-center gap-1 ${textAlign === 'text-center' ? 'justify-center' : textAlign === 'text-right' ? 'justify-end' : ''}`}>{label} <ArrowUpDown size={8} className={`${sortConfig.key === sortKey ? 'text-indigo-600' : 'opacity-20'}`} /></div>
     </th>
   );
+
+  const renderOrderCard = (order: any) => {
+    const trip = order.trips;
+    const isRequest = trip?.is_request; // Check if it was a passenger request
+    const bookingCode = `S${order.id.substring(0, 5).toUpperCase()}`;
+    const isFinalStatus = order.status === 'EXPIRED' || order.status === 'CANCELLED';
+    
+    // Display Logic based on Request Type
+    const personName = isRequest ? (order.profiles?.full_name || 'Tài xế nhận') : (order.profiles?.full_name || 'Khách vãng lai');
+    const personLabel = isRequest ? 'Tài xế nhận' : 'Khách đặt';
+    
+    const depTime = trip?.departure_time ? new Date(trip.departure_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
+    const depDate = trip?.departure_time ? new Date(trip.departure_time).toLocaleDateString('vi-VN') : '--/--/----';
+    const arrTime = trip?.arrival_time ? new Date(trip.arrival_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
+    const arrDate = trip?.arrival_time ? new Date(trip.arrival_time).toLocaleDateString('vi-VN') : '--/--/----';
+
+    const isOngoing = trip?.status === TripStatus.ON_TRIP;
+    const isUrgent = trip?.status === TripStatus.URGENT;
+    const isPreparing = trip?.status === TripStatus.PREPARING;
+
+    const createdAtTime = order.created_at ? new Date(order.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+    const createdAtDay = order.created_at ? new Date(order.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--/--';
+
+    // Color & Text Logic
+    const priceColor = isRequest ? 'text-indigo-600' : 'text-orange-600';
+    const progressBarColor = isRequest ? 'bg-indigo-500' : 'bg-orange-500';
+    const seatLabel = isRequest ? 'Nhận chuyến' : `Đặt ${order.seats_booked}/${trip?.seats} ghế`;
+
+    // Use extracted locations
+    const { pickup, dropoff } = extractLocations(order.note);
+    const displayPickup = pickup || trip?.origin_name;
+    const displayDropoff = dropoff || trip?.dest_name;
+    const displayPhone = order.passenger_phone ? order.passenger_phone.replace(/^\+?84/, '0') : 'N/A';
+
+    return (
+      <div key={order.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative flex flex-col justify-between ${isOngoing ? 'border-blue-200 bg-blue-50/20' : isUrgent ? 'border-rose-400 bg-rose-50/20' : isPreparing ? 'border-amber-300 bg-amber-50/10' : 'border-slate-100'} ${isFinalStatus ? 'opacity-80' : ''}`} onClick={() => onViewTripDetails(trip)}>
+        <div>
+          {/* Header: Status Selector, Seats, Price */}
+          <div className="flex items-center justify-between mb-3">
+            <div onClick={(e) => e.stopPropagation()} className="z-20">
+              {actionLoading === order.id ? (
+                <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100 w-28"><Loader2 className="animate-spin text-indigo-500" size={12} /></div>
+              ) : (
+                <BookingStatusSelector value={order.status} onChange={(newStatus) => handleUpdateStatus(order.id, newStatus)} />
+              )}
+            </div>
+
+            <div className="flex flex-col items-center">
+              <span className="text-[8px] font-bold text-slate-500">{seatLabel}</span>
+              <div className="w-16 bg-slate-100 h-1 rounded-full overflow-hidden mt-0.5">
+                <div className={`h-full rounded-full transition-all duration-500 ${progressBarColor}`} style={{ width: '100%' }}></div>
+              </div>
+            </div>
+
+            <p className={`text-sm font-bold tracking-tight ${priceColor}`}>
+              {order.total_price === 0 ? 'Thoả thuận' : new Intl.NumberFormat('vi-VN').format(order.total_price) + 'đ'}
+            </p>
+          </div>
+
+          {/* Info: Person Info */}
+          <div className="flex flex-col gap-2.5 items-start mb-3 min-h-[30px] justify-center">
+            <div className="flex items-center gap-2.5 w-full">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-lg shrink-0 ${isRequest ? 'bg-indigo-600 shadow-indigo-100' : 'bg-orange-600 shadow-orange-100'}`}>
+                {personName.charAt(0)}
+              </div>
+              <h4 className="font-bold text-slate-900 text-[13px] leading-tight truncate flex-1">{personName}</h4>
+            </div>
+            <div className="flex items-center gap-1.5 min-w-0 flex-wrap pl-0.5">
+              <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[8px] font-bold truncate ${isRequest ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-orange-50 text-orange-600 border-orange-100'} flex-shrink-0 min-w-0`}>
+                  {isRequest ? <Car size={9} /> : <User size={9} />} {personLabel}
+              </span>
+            </div>
+          </div>
+          
+          {/* Route Visual - Consistent Style */}
+          <div className="space-y-2.5 mb-3 relative">
+              <div className="absolute left-[7px] top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-indigo-100/70 via-slate-100/70 to-emerald-100/70"></div>
+              
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-indigo-100/70 border-indigo-200/50 shadow-indigo-200/50">
+                  <div className="w-2 h-2 rounded-full shadow-inner bg-indigo-600"></div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold text-slate-700 truncate leading-tight" title={displayPickup}>{displayPickup}</p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-100">
+                        <Clock size={8} /> <span className="text-[9px] font-black">{depTime}</span>
+                      </div>
+                      <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
+                        <Calendar size={8} /> <span className="text-[9px] font-bold">{depDate}</span>
+                      </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-emerald-100/70 border-emerald-200/50 shadow-emerald-200/50">
+                  <div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold text-slate-700 truncate leading-tight" title={displayDropoff}>{displayDropoff}</p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-emerald-50 text-emerald-600 border-emerald-100">
+                        <Clock size={8} /> <span className="text-[9px] font-black">{arrTime}</span>
+                      </div>
+                      <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
+                        <Calendar size={8} /> <span className="text-[9px] font-bold">{arrDate}</span>
+                      </div>
+                  </div>
+                </div>
+              </div>
+          </div>
+
+          {/* Booking Message Display (New) */}
+          {order.note && (
+              <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-100 rounded-xl flex gap-2 relative z-10">
+                  <MessageSquareQuote size={12} className="text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-slate-600 font-medium line-clamp-2" title={order.note}>{order.note}</p>
+              </div>
+          )}
+        </div>
+
+        {/* Footer - 3 columns grid */}
+        <div className="grid grid-cols-3 items-center pt-3 border-t border-slate-100 mt-auto">
+          <div className="flex justify-start">
+              <div className="inline-flex items-center bg-cyan-50 text-cyan-700 px-2 py-0.5 rounded-md border border-cyan-200 shadow-sm self-start">
+                <CopyableCode code={bookingCode} className="text-[9px] font-black" label={bookingCode} />
+              </div>
+          </div>
+          
+          <div className="flex justify-center">
+              <div className="flex items-center gap-2">
+                  {order.passenger_phone && (
+                      <a href={`tel:${order.passenger_phone}`} className="w-6 h-6 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100 shrink-0" title="Gọi điện">
+                          <Phone size={10} />
+                      </a>
+                  )}
+                  <CopyableCode code={order.passenger_phone || ''} className="text-[10px] font-bold text-indigo-600 truncate" label={displayPhone} />
+              </div>
+          </div>
+
+          <div className="flex justify-end items-center gap-1 text-[9px] font-bold text-slate-400">
+              <Clock size={10} className="shrink-0" />
+              <span>{createdAtTime} {createdAtDay}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderGroup = (group: any[], title: string, icon: React.ElementType, colors: any) => {
+    if (group.length === 0) return null;
+    return (
+        <section className="space-y-5">
+            <SectionHeader icon={icon} title={title} count={group.length} color={colors.color} bgColor={colors.bgColor} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 pb-5">
+                {group.map(order => renderOrderCard(order))}
+            </div>
+        </section>
+    );
+  };
 
   return (
     <div className="space-y-4 animate-slide-up max-w-[1600px] mx-auto">
@@ -414,148 +625,16 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
         </div>
       </div>
 
-      {/* Card View (Mobile Default + Desktop Toggle) */}
-      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 ${viewMode === 'list' ? 'md:hidden' : ''}`}>
-        {filteredOrders.length > 0 ? filteredOrders.map(order => {
-          const trip = order.trips;
-          const isRequest = trip?.is_request; // Check if it was a passenger request
-          const bookingCode = `S${order.id.substring(0, 5).toUpperCase()}`;
-          const isFinalStatus = order.status === 'EXPIRED' || order.status === 'CANCELLED';
-          
-          // Display Logic based on Request Type
-          const personName = isRequest ? (order.profiles?.full_name || 'Tài xế nhận') : (order.profiles?.full_name || 'Khách vãng lai');
-          const personLabel = isRequest ? 'Tài xế nhận' : 'Khách đặt';
-          const tripCode = trip?.trip_code || (trip?.id ? `T${trip.id.substring(0, 5).toUpperCase()}` : '---');
-          
-          const depTime = trip?.departure_time ? new Date(trip.departure_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
-          const depDate = trip?.departure_time ? new Date(trip.departure_time).toLocaleDateString('vi-VN') : '--/--/----';
-          const arrTime = trip?.arrival_time ? new Date(trip.arrival_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
-          const arrDate = trip?.arrival_time ? new Date(trip.arrival_time).toLocaleDateString('vi-VN') : '--/--/----';
-
-          const isOngoing = trip?.status === TripStatus.ON_TRIP;
-          const isUrgent = trip?.status === TripStatus.URGENT;
-          const isPreparing = trip?.status === TripStatus.PREPARING;
-
-          const createdAtTime = order.created_at ? new Date(order.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-          const createdAtDay = order.created_at ? new Date(order.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--/--';
-
-          // Color & Text Logic
-          const priceColor = isRequest ? 'text-indigo-600' : 'text-orange-600';
-          const progressBarColor = isRequest ? 'bg-indigo-500' : 'bg-orange-500';
-          const seatLabel = isRequest ? 'Nhận chuyến' : `Đặt ${order.seats_booked}/${trip?.seats} ghế`;
-
-          // Use extracted locations
-          const { pickup, dropoff } = extractLocations(order.note);
-          const displayPickup = pickup || trip?.origin_name;
-          const displayDropoff = dropoff || trip?.dest_name;
-          const displayPhone = order.passenger_phone ? order.passenger_phone.replace(/^\+?84/, '0') : 'N/A';
-
-          return (
-            <div key={order.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative flex flex-col justify-between h-full ${isOngoing ? 'border-blue-200 bg-blue-50/20' : isUrgent ? 'border-rose-400 bg-rose-50/20' : isPreparing ? 'border-amber-300 bg-amber-50/10' : 'border-slate-100'} ${isFinalStatus ? 'opacity-80' : ''}`} onClick={() => onViewTripDetails(trip)}>
-              <div>
-                {/* Header: Status Selector, Seats, Price */}
-                <div className="flex items-center justify-between mb-3">
-                  <div onClick={(e) => e.stopPropagation()} className="z-20">
-                    {actionLoading === order.id ? (
-                      <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100 w-28"><Loader2 className="animate-spin text-indigo-500" size={12} /></div>
-                    ) : (
-                      <BookingStatusSelector value={order.status} onChange={(newStatus) => handleUpdateStatus(order.id, newStatus)} />
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-center">
-                    <span className="text-[8px] font-bold text-slate-500">{seatLabel}</span>
-                    <div className="w-16 bg-slate-100 h-1 rounded-full overflow-hidden mt-0.5">
-                      <div className={`h-full rounded-full transition-all duration-500 ${progressBarColor}`} style={{ width: '100%' }}></div>
-                    </div>
-                  </div>
-
-                  <p className={`text-sm font-bold tracking-tight ${priceColor}`}>
-                    {order.total_price === 0 ? 'Thoả thuận' : new Intl.NumberFormat('vi-VN').format(order.total_price) + 'đ'}
-                  </p>
-                </div>
-
-                {/* Info: Person Info */}
-                <div className="flex flex-col gap-2.5 items-start mb-3 min-h-[30px] justify-center">
-                  <div className="flex items-center gap-2.5 w-full">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-lg shrink-0 ${isRequest ? 'bg-indigo-600 shadow-indigo-100' : 'bg-orange-600 shadow-orange-100'}`}>
-                      {personName.charAt(0)}
-                    </div>
-                    <h4 className="font-bold text-slate-900 text-[13px] leading-tight truncate flex-1">{personName}</h4>
-                  </div>
-                  <div className="flex items-center gap-1.5 min-w-0 flex-wrap pl-0.5">
-                    <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[8px] font-bold truncate ${isRequest ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-orange-50 text-orange-600 border-orange-100'} flex-shrink-0 min-w-0`}>
-                       {isRequest ? <Car size={9} /> : <User size={9} />} {personLabel}
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Route Visual - Consistent Style */}
-                <div className="space-y-2.5 mb-3 relative">
-                   <div className="absolute left-[7px] top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-indigo-100/70 via-slate-100/70 to-emerald-100/70"></div>
-                   
-                   <div className="flex items-center gap-3 relative z-10">
-                      <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-indigo-100/70 border-indigo-200/50 shadow-indigo-200/50">
-                        <div className="w-2 h-2 rounded-full shadow-inner bg-indigo-600"></div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-slate-700 truncate leading-tight" title={displayPickup}>{displayPickup}</p>
-                        <div className="flex items-center gap-1.5 mt-1">
-                           <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-100">
-                              <Clock size={8} /> <span className="text-[9px] font-black">{depTime}</span>
-                           </div>
-                           <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
-                              <Calendar size={8} /> <span className="text-[9px] font-bold">{depDate}</span>
-                           </div>
-                        </div>
-                      </div>
-                   </div>
-                   <div className="flex items-center gap-3 relative z-10">
-                      <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-emerald-100/70 border-emerald-200/50 shadow-emerald-200/50">
-                        <div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-slate-700 truncate leading-tight" title={displayDropoff}>{displayDropoff}</p>
-                        <div className="flex items-center gap-1.5 mt-1">
-                           <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-emerald-50 text-emerald-600 border-emerald-100">
-                              <Clock size={8} /> <span className="text-[9px] font-black">{arrTime}</span>
-                           </div>
-                           <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
-                              <Calendar size={8} /> <span className="text-[9px] font-bold">{arrDate}</span>
-                           </div>
-                        </div>
-                      </div>
-                   </div>
-                </div>
-              </div>
-
-              {/* Footer - 3 columns grid */}
-              <div className="grid grid-cols-3 items-center pt-3 border-t border-slate-100 mt-auto">
-                <div className="flex justify-start">
-                   <div className="inline-flex items-center bg-cyan-50 text-cyan-700 px-2 py-0.5 rounded-md border border-cyan-200 shadow-sm self-start">
-                      <CopyableCode code={bookingCode} className="text-[9px] font-black" label={bookingCode} />
-                   </div>
-                </div>
-                
-                <div className="flex justify-center">
-                    <div className="flex items-center gap-2">
-                        {order.passenger_phone && (
-                            <a href={`tel:${order.passenger_phone}`} className="w-6 h-6 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100 shrink-0" title="Gọi điện">
-                                <Phone size={10} />
-                            </a>
-                        )}
-                        <CopyableCode code={order.passenger_phone || ''} className="text-[10px] font-bold text-indigo-600 truncate" label={displayPhone} />
-                    </div>
-                </div>
-
-                <div className="flex justify-end items-center gap-1 text-[9px] font-bold text-slate-400">
-                   <Clock size={10} className="shrink-0" />
-                   <span>{createdAtTime} {createdAtDay}</span>
-                </div>
-              </div>
-            </div>
-          );
-        }) : (
+      {/* Grid View (Mobile Default + Desktop Toggle) */}
+      <div className={`space-y-8 pb-20 ${viewMode === 'list' ? 'md:hidden' : ''}`}>
+        {filteredOrders.length > 0 ? (
+            <>
+                {renderGroup(groupedOrders.today, 'Hôm nay', CalendarDays, { color: 'text-emerald-600', bgColor: 'bg-emerald-100' })}
+                {renderGroup(groupedOrders.thisMonth, 'Trong tháng này', Calendar, { color: 'text-sky-600', bgColor: 'bg-sky-100' })}
+                {renderGroup(groupedOrders.future, 'Tương lai', Send, { color: 'text-indigo-600', bgColor: 'bg-indigo-100' })}
+                {renderGroup(groupedOrders.past, 'Lịch sử', History, { color: 'text-slate-500', bgColor: 'bg-slate-100' })}
+            </>
+        ) : (
           <div className="p-10 text-center bg-white rounded-[24px] border border-dashed border-slate-200">
              <ShoppingBag size={32} className="mx-auto text-slate-300 mb-2" />
              <p className="text-xs font-bold text-slate-400">Không có đơn hàng nào</p>
@@ -699,8 +778,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
                                 <span className="text-[10px] font-black">{arrTime}</span>
                               </div>
                               <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
-                                <Calendar size={8} />
-                                <span className="text-[10px] font-bold">{arrDate}</span>
+                                <Calendar size={8} /> <span className="text-[10px] font-bold">{arrDate}</span>
                               </div>
                             </div>
                             <p className="text-[10px] font-bold text-emerald-600 truncate leading-tight mt-0.5 pr-1" title={displayDropoff}>

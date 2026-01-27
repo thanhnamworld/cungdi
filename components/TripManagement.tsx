@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
-  ClipboardList, Search, Clock, ArrowUpDown, Play, CheckCircle2, XCircle, Loader2, ArrowRight, User, Car, History, Timer, X, AlertCircle, ChevronDown, Check, Phone, Calendar, Lock, LayoutList, LayoutGrid, Star, Sparkles, Radio, Info, Users, Layers, Ban
+  ClipboardList, Search, Clock, ArrowUpDown, Play, CheckCircle2, XCircle, Loader2, ArrowRight, User, Car, History, Timer, X, AlertCircle, ChevronDown, Check, Phone, Calendar, Lock, LayoutList, LayoutGrid, Star, Sparkles, Radio, Info, Users, Layers, Ban, CalendarDays, Send
 } from 'lucide-react';
 import { Trip, Profile, TripStatus, Booking } from '../types';
 import { supabase } from '../lib/supabase';
@@ -103,6 +103,18 @@ export const TripStatusSelector = ({ value, onChange, disabled, arrivalTime }: {
   );
 };
 
+// Section Header Component (Shared style)
+const SectionHeader = ({ icon: Icon, title, count, color = 'text-emerald-600', bgColor = 'bg-emerald-100' }: any) => (
+  <div className="flex items-center gap-3 mt-6 mb-4">
+    <div className={`p-2 rounded-xl ${bgColor} ${color}`}>
+      <Icon size={18} />
+    </div>
+    <h3 className="text-lg font-bold text-slate-800">{title}</h3>
+    <span className="text-sm font-bold text-slate-400">({count})</span>
+    <hr className="flex-1 border-dashed border-slate-200" />
+  </div>
+);
+
 interface TripManagementProps {
   profile: Profile | null;
   trips: Trip[];
@@ -181,6 +193,42 @@ const TripManagement: React.FC<TripManagementProps> = ({ profile, trips, booking
     return filtered;
   }, [trips, searchTerm, statusFilter, sortOrder, sortConfig, isAdmin, profile, tripTypeFilter]);
 
+  const groupedTrips = useMemo(() => {
+    const today: Trip[] = [];
+    const thisMonth: Trip[] = [];
+    const future: Trip[] = [];
+    const past: Trip[] = [];
+    
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    for (const trip of displayTrips) {
+      const departureDate = new Date(trip.departure_time);
+      
+      if (trip.status === TripStatus.COMPLETED) {
+        past.push(trip);
+        continue;
+      }
+
+      if (departureDate < startOfToday) {
+        past.push(trip);
+      } else if (departureDate >= startOfToday && departureDate <= endOfToday) {
+        today.push(trip);
+      } else if (departureDate > endOfToday && departureDate <= endOfMonth) {
+        thisMonth.push(trip);
+      } else {
+        future.push(trip);
+      }
+    }
+    
+    // Sort past trips in reverse chronological order
+    past.sort((a, b) => new Date(b.departure_time).getTime() - new Date(a.departure_time).getTime());
+
+    return { today, thisMonth, future, past };
+  }, [displayTrips]);
+
   const handleUpdateStatus = async (tripId: string, newStatus: TripStatus) => {
     const trip = trips.find(t => t.id === tripId);
     if (trip?.status === TripStatus.COMPLETED || trip?.status === TripStatus.CANCELLED) return;
@@ -210,6 +258,129 @@ const TripManagement: React.FC<TripManagementProps> = ({ profile, trips, booking
       </div>
     </th>
   );
+
+  const renderTripCard = (trip: Trip) => {
+    const isRequest = trip.is_request;
+    const tripBookings = bookings.filter(b => b.trip_id === trip.id);
+    const confirmedBookings = tripBookings.filter(b => b.status === 'CONFIRMED');
+    const bookedSeatsCount = confirmedBookings.reduce((sum, b) => sum + b.seats_booked, 0);
+    const availableSeatsCount = trip.seats - bookedSeatsCount;
+    const safeAvailableSeats = availableSeatsCount < 0 ? 0 : availableSeatsCount;
+    const fillPercent = trip.seats > 0 ? (bookedSeatsCount / trip.seats) * 100 : 0;
+
+    let fillBarColor: string;
+    if (isRequest) {
+      const bookingsCount = trip.bookings_count || 0;
+      fillBarColor = bookingsCount === 0 ? 'bg-slate-200' : bookingsCount === 1 ? 'bg-emerald-500' : 'bg-rose-500';
+    } else {
+      if (bookedSeatsCount <= 0) fillBarColor = 'bg-slate-200';
+      else if (fillPercent < 50) fillBarColor = 'bg-emerald-500';
+      else if (fillPercent < 100) fillBarColor = 'bg-amber-500';
+      else fillBarColor = 'bg-rose-500';
+    }
+    
+    const depTime = new Date(trip.departure_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
+    const depDate = new Date(trip.departure_time).toLocaleDateString('vi-VN');
+    const arrivalDateObj = trip.arrival_time ? new Date(trip.arrival_time) : null;
+    const arrTime = arrivalDateObj ? arrivalDateObj.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
+    const arrDate = arrivalDateObj ? arrivalDateObj.toLocaleDateString('vi-VN') : '--/--/----';
+    const createdAt = trip.created_at ? new Date(trip.created_at) : null;
+    const createdAtTime = createdAt ? createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+    const createdAtDay = createdAt ? createdAt.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--/--';
+    const tripCode = trip.trip_code || (trip.id ? `T${trip.id.substring(0, 5).toUpperCase()}` : '');
+    const isCompleted = trip.status === TripStatus.COMPLETED;
+    const isCancelled = trip.status === TripStatus.CANCELLED;
+    const isOngoing = trip.status === TripStatus.ON_TRIP;
+    const isUrgent = trip.status === TripStatus.URGENT;
+    const isPreparing = trip.status === TripStatus.PREPARING;
+    const vehicleRaw = trip.vehicle_info || '';
+    const vehicleParts = vehicleRaw.split(' (');
+    const vehicleModel = vehicleParts[0] || '---';
+    const licensePlate = vehicleParts[1] ? vehicleParts[1].replace(')', '') : '';
+    const vehicleConfig = getVehicleConfig(vehicleModel);
+    const VIcon = isRequest ? Users : vehicleConfig.icon;
+
+    return (
+      <div key={trip.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative flex flex-col justify-between h-full ${isOngoing ? 'border-blue-200 bg-blue-50/20' : isUrgent ? 'border-rose-400 bg-rose-50/20' : isPreparing ? 'border-amber-300 bg-amber-50/10' : 'border-slate-100'} ${isCompleted || isCancelled ? 'opacity-80' : ''}`} onClick={() => onViewTripDetails(trip)}>
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div onClick={(e) => e.stopPropagation()} className="z-20">
+              {actionLoading === trip.id ? (
+                <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100 w-28">
+                  <Loader2 className="animate-spin text-indigo-500" size={12} />
+                </div>
+              ) : (
+                <TripStatusSelector value={trip.status} disabled={isCompleted || isCancelled} arrivalTime={trip.arrival_time} onChange={(newStatus) => handleUpdateStatus(trip.id, newStatus)} />
+              )}
+            </div>
+            <div className="flex flex-col items-center">
+              {isRequest ? (
+                  <span className="text-[8px] font-bold text-slate-500">{trip.seats === 7 ? 'Bao xe' : `${trip.seats} ghế`} ({trip.bookings_count || 0} xe nhận)</span>
+              ) : (
+                  <span className="text-[8px] font-bold text-slate-500">Còn {safeAvailableSeats}/{trip.seats} ghế</span>
+              )}
+              <div className="w-16 bg-slate-100 h-1 rounded-full overflow-hidden mt-0.5">
+                <div className={`h-full rounded-full transition-all duration-500 ${fillBarColor}`} style={{ width: isRequest ? '100%' : `${fillPercent}%` }}></div>
+              </div>
+            </div>
+            <p className={`text-sm font-bold tracking-tight ${isRequest ? 'text-orange-600' : 'text-indigo-600'}`}>
+              {trip.price === 0 ? 'Thoả thuận' : new Intl.NumberFormat('vi-VN').format(trip.price) + 'đ'}
+            </p>
+          </div>
+          <div className="flex flex-col gap-2.5 items-start mb-3 min-h-[30px] justify-center">
+            <div className="flex items-center gap-2.5 w-full">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-lg shrink-0 ${isRequest ? 'bg-orange-500 shadow-orange-100' : 'bg-indigo-600 shadow-indigo-100'}`}>{trip.driver_name?.charAt(0)}</div>
+              <h4 className="font-bold text-slate-900 text-[13px] leading-tight truncate flex-1">{trip.driver_name}</h4>
+            </div>
+            <div className="flex items-center gap-1.5 min-w-0 flex-wrap pl-0.5">
+                <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[8px] font-bold truncate ${isRequest ? 'bg-orange-50 text-orange-600 border-orange-100' : vehicleConfig.style}`}><VIcon size={9} /> {isRequest ? (trip.vehicle_info || 'Cần tìm xe') : vehicleModel}</span>
+                {!isRequest && licensePlate && <div className="inline-flex items-center bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><CopyableCode code={licensePlate} className="text-[9px] font-black uppercase tracking-wider" label={licensePlate} /></div>}
+            </div>
+          </div>
+          <div className="space-y-2.5 mb-3 relative">
+            <div className="absolute left-[7px] top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-indigo-100/70 via-slate-100/70 to-emerald-100/70"></div>
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-indigo-100/70 border-indigo-200/50 shadow-indigo-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-indigo-600"></div></div>
+              <div className="flex-1">
+                <p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.origin_name}</p>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-100"><Clock size={8} /> <span className="text-[9px] font-black">{depTime}</span></div>
+                  <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{depDate}</span></div>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-emerald-100/70 border-emerald-200/50 shadow-emerald-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div></div>
+              <div className="flex-1">
+                <p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.dest_name}</p>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-emerald-50 text-emerald-600 border-emerald-100"><Clock size={8} /> <span className="text-[9px] font-black">{arrTime}</span></div>
+                  <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{arrDate}</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 items-center pt-3 border-t border-slate-100 mt-auto">
+          <div className="flex justify-start"><div className="inline-flex items-center bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md border border-rose-100 shadow-sm"><CopyableCode code={tripCode} className="text-[9px] font-black" label={tripCode} /></div></div>
+          <div className="flex justify-center"><button onClick={(e) => { e.stopPropagation(); onViewTripDetails(trip); }} className="px-2 py-1 rounded-lg transition-all border shadow-sm flex items-center gap-1.5 bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100"><Info size={10} /><span className="text-[10px] font-bold">Chi tiết</span></button></div>
+          <div className="flex justify-end items-center gap-1 text-[9px] font-bold text-slate-400"><Clock size={10} className="shrink-0" /><span>{createdAtTime} {createdAtDay}</span></div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderGroup = (group: Trip[], title: string, icon: React.ElementType, colors: any) => {
+    if (group.length === 0) return null;
+    return (
+        <section className="space-y-5">
+            <SectionHeader icon={icon} title={title} count={group.length} color={colors.color} bgColor={colors.bgColor} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 pb-5">
+                {group.map(trip => renderTripCard(trip))}
+            </div>
+        </section>
+    );
+  };
 
   return (
     <div className="space-y-4 animate-slide-up max-w-[1600px] mx-auto">
@@ -282,122 +453,20 @@ const TripManagement: React.FC<TripManagementProps> = ({ profile, trips, booking
         </div>
       </div>
 
-      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 ${viewMode === 'list' ? 'md:hidden' : ''}`}>
-        {displayTrips.map(trip => {
-          const isRequest = trip.is_request;
-          
-          // --- CALCULATED SEATS LOGIC ---
-          // Filter bookings for this specific trip and count confirmed seats
-          const tripBookings = bookings.filter(b => b.trip_id === trip.id);
-          const confirmedBookings = tripBookings.filter(b => b.status === 'CONFIRMED');
-          const bookedSeatsCount = confirmedBookings.reduce((sum, b) => sum + b.seats_booked, 0);
-          
-          // Use calculated available seats for display
-          const availableSeatsCount = trip.seats - bookedSeatsCount;
-          const safeAvailableSeats = availableSeatsCount < 0 ? 0 : availableSeatsCount;
-          const fillPercent = trip.seats > 0 ? (bookedSeatsCount / trip.seats) * 100 : 0;
-
-          let fillBarColor: string;
-          if (isRequest) {
-            const bookingsCount = trip.bookings_count || 0;
-            fillBarColor = bookingsCount === 0 ? 'bg-slate-200' : bookingsCount === 1 ? 'bg-emerald-500' : 'bg-rose-500';
-          } else {
-            if (bookedSeatsCount <= 0) fillBarColor = 'bg-slate-200';
-            else if (fillPercent < 50) fillBarColor = 'bg-emerald-500';
-            else if (fillPercent < 100) fillBarColor = 'bg-amber-500';
-            else fillBarColor = 'bg-rose-500';
-          }
-          
-          const depTime = new Date(trip.departure_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
-          const depDate = new Date(trip.departure_time).toLocaleDateString('vi-VN');
-          const arrivalDateObj = trip.arrival_time ? new Date(trip.arrival_time) : null;
-          const arrTime = arrivalDateObj ? arrivalDateObj.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
-          const arrDate = arrivalDateObj ? arrivalDateObj.toLocaleDateString('vi-VN') : '--/--/----';
-          const createdAt = trip.created_at ? new Date(trip.created_at) : null;
-          const createdAtTime = createdAt ? createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-          const createdAtDay = createdAt ? createdAt.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--/--';
-          const tripCode = trip.trip_code || (trip.id ? `T${trip.id.substring(0, 5).toUpperCase()}` : '');
-          const isCompleted = trip.status === TripStatus.COMPLETED;
-          const isCancelled = trip.status === TripStatus.CANCELLED;
-          const isOngoing = trip.status === TripStatus.ON_TRIP;
-          const isUrgent = trip.status === TripStatus.URGENT;
-          const isPreparing = trip.status === TripStatus.PREPARING;
-          const vehicleRaw = trip.vehicle_info || '';
-          const vehicleParts = vehicleRaw.split(' (');
-          const vehicleModel = vehicleParts[0] || '---';
-          const licensePlate = vehicleParts[1] ? vehicleParts[1].replace(')', '') : '';
-          const vehicleConfig = getVehicleConfig(vehicleModel);
-          const VIcon = isRequest ? Users : vehicleConfig.icon;
-
-          return (
-            <div key={trip.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative flex flex-col justify-between h-full ${isOngoing ? 'border-blue-200 bg-blue-50/20' : isUrgent ? 'border-rose-400 bg-rose-50/20' : isPreparing ? 'border-amber-300 bg-amber-50/10' : 'border-slate-100'} ${isCompleted || isCancelled ? 'opacity-80' : ''}`} onClick={() => onViewTripDetails(trip)}>
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div onClick={(e) => e.stopPropagation()} className="z-20">
-                    {actionLoading === trip.id ? (
-                      <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100 w-28">
-                        <Loader2 className="animate-spin text-indigo-500" size={12} />
-                      </div>
-                    ) : (
-                      <TripStatusSelector value={trip.status} disabled={isCompleted || isCancelled} arrivalTime={trip.arrival_time} onChange={(newStatus) => handleUpdateStatus(trip.id, newStatus)} />
-                    )}
-                  </div>
-                  <div className="flex flex-col items-center">
-                    {isRequest ? (
-                       <span className="text-[8px] font-bold text-slate-500">{trip.seats === 7 ? 'Bao xe' : `${trip.seats} ghế`} ({trip.bookings_count || 0} xe nhận)</span>
-                    ) : (
-                       <span className="text-[8px] font-bold text-slate-500">Còn {safeAvailableSeats}/{trip.seats} ghế</span>
-                    )}
-                    <div className="w-16 bg-slate-100 h-1 rounded-full overflow-hidden mt-0.5">
-                      <div className={`h-full rounded-full transition-all duration-500 ${fillBarColor}`} style={{ width: isRequest ? '100%' : `${fillPercent}%` }}></div>
-                    </div>
-                  </div>
-                  <p className={`text-sm font-bold tracking-tight ${isRequest ? 'text-orange-600' : 'text-indigo-600'}`}>
-                    {trip.price === 0 ? 'Thoả thuận' : new Intl.NumberFormat('vi-VN').format(trip.price) + 'đ'}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2.5 items-start mb-3 min-h-[30px] justify-center">
-                  <div className="flex items-center gap-2.5 w-full">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-lg shrink-0 ${isRequest ? 'bg-orange-500 shadow-orange-100' : 'bg-indigo-600 shadow-indigo-100'}`}>{trip.driver_name?.charAt(0)}</div>
-                    <h4 className="font-bold text-slate-900 text-[13px] leading-tight truncate flex-1">{trip.driver_name}</h4>
-                  </div>
-                  <div className="flex items-center gap-1.5 min-w-0 flex-wrap pl-0.5">
-                      <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[8px] font-bold truncate ${isRequest ? 'bg-orange-50 text-orange-600 border-orange-100' : vehicleConfig.style}`}><VIcon size={9} /> {isRequest ? (trip.vehicle_info || 'Cần tìm xe') : vehicleModel}</span>
-                      {!isRequest && licensePlate && <div className="inline-flex items-center bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><CopyableCode code={licensePlate} className="text-[9px] font-black uppercase tracking-wider" label={licensePlate} /></div>}
-                  </div>
-                </div>
-                <div className="space-y-2.5 mb-3 relative">
-                  <div className="absolute left-[7px] top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-indigo-100/70 via-slate-100/70 to-emerald-100/70"></div>
-                  <div className="flex items-center gap-3 relative z-10">
-                    <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-indigo-100/70 border-indigo-200/50 shadow-indigo-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-indigo-600"></div></div>
-                    <div className="flex-1">
-                      <p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.origin_name}</p>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-100"><Clock size={8} /> <span className="text-[9px] font-black">{depTime}</span></div>
-                        <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{depDate}</span></div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 relative z-10">
-                    <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-emerald-100/70 border-emerald-200/50 shadow-emerald-200/50"><div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div></div>
-                    <div className="flex-1">
-                      <p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.dest_name}</p>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-emerald-50 text-emerald-600 border-emerald-100"><Clock size={8} /> <span className="text-[9px] font-black">{arrTime}</span></div>
-                        <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm"><Calendar size={8} /> <span className="text-[9px] font-bold">{arrDate}</span></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 items-center pt-3 border-t border-slate-100 mt-auto">
-                <div className="flex justify-start"><div className="inline-flex items-center bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md border border-rose-100 shadow-sm"><CopyableCode code={tripCode} className="text-[9px] font-black" label={tripCode} /></div></div>
-                <div className="flex justify-center"><button onClick={(e) => { e.stopPropagation(); onViewTripDetails(trip); }} className="px-2 py-1 rounded-lg transition-all border shadow-sm flex items-center gap-1.5 bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100"><Info size={10} /><span className="text-[10px] font-bold">Chi tiết</span></button></div>
-                <div className="flex justify-end items-center gap-1 text-[9px] font-bold text-slate-400"><Clock size={10} className="shrink-0" /><span>{createdAtTime} {createdAtDay}</span></div>
-              </div>
+      <div className={`space-y-8 pb-20 ${viewMode === 'list' ? 'md:hidden' : ''}`}>
+        {displayTrips.length > 0 ? (
+            <>
+                {renderGroup(groupedTrips.today, 'Hôm nay', CalendarDays, { color: 'text-emerald-600', bgColor: 'bg-emerald-100' })}
+                {renderGroup(groupedTrips.thisMonth, 'Trong tháng này', Calendar, { color: 'text-sky-600', bgColor: 'bg-sky-100' })}
+                {renderGroup(groupedTrips.future, 'Tương lai', Send, { color: 'text-indigo-600', bgColor: 'bg-indigo-100' })}
+                {renderGroup(groupedTrips.past, 'Lịch sử', History, { color: 'text-slate-500', bgColor: 'bg-slate-100' })}
+            </>
+        ) : (
+            <div className="py-20 text-center bg-white rounded-[32px] border border-dashed border-slate-200">
+                <Car size={40} className="mx-auto text-slate-300 mb-3" />
+                <p className="text-xs font-bold text-slate-400 uppercase">Không tìm thấy chuyến xe nào</p>
             </div>
-          );
-        })}
+        )}
       </div>
     </div>
   );
