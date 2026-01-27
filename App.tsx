@@ -530,7 +530,7 @@ const App: React.FC = () => {
       case 'my-requests': return <BookingsList bookings={bookings} trips={trips} profile={profile} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} forcedMode="BOOKINGS" showAlert={showAlert} />;
       case 'manage-trips': return <TripManagement profile={profile} trips={trips} bookings={staffBookings} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
       case 'manage-orders': return <OrderManagement profile={profile} trips={trips} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
-      case 'admin': return profile?.role === 'admin' ? <AdminPanel showAlert={showAlert} /> : <SearchTrips {...commonProps} />;
+      case 'admin': return (profile?.role === 'admin' || profile?.role === 'manager') ? <AdminPanel showAlert={showAlert} /> : <SearchTrips {...commonProps} />;
       default: return <SearchTrips {...commonProps} />;
     }
   };

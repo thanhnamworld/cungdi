@@ -95,6 +95,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
   const mainContentRef = useRef<HTMLDivElement>(null);
 
   const isStaff = profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'driver';
+  const canSeePersonalTabs = profile && (profile.role === 'user' || profile.role === 'driver');
   const roleConfig = getRoleConfig(profile?.role);
   const RoleIcon = roleConfig.icon;
   const tierConfig = getTierConfig(profile?.membership_tier);
@@ -156,7 +157,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
     { id: 'dashboard', label: 'Thống kê', icon: LayoutDashboard, roles: ['admin', 'manager', 'driver'] },
     { id: 'manage-trips', label: 'Quản lý Chuyến xe', icon: ClipboardList, roles: ['admin', 'manager', 'driver'] },
     { id: 'manage-orders', label: 'Quản lý Yêu cầu', icon: ShoppingBag, roles: ['admin', 'manager', 'driver'] },
-    { id: 'admin', label: 'Hệ thống', icon: Shield, roles: ['admin'] },
+    { id: 'admin', label: 'Hệ thống', icon: Shield, roles: ['admin', 'manager'] },
   ];
 
   const allPossibleItems = [
@@ -242,19 +243,22 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
           
           <nav className="flex-1 space-y-1.5 overflow-y-auto custom-scrollbar pr-2">
             <p className="text-[11px] font-bold text-slate-500 mb-4 px-3 uppercase tracking-wider">Cá nhân</p>
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl transition-all duration-300 group ${
-                  activeTab === item.id ? 'bg-emerald-50 text-emerald-600 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <item.icon size={18} className={activeTab === item.id ? 'text-emerald-600' : 'text-slate-500 group-hover:text-emerald-600'} />
-                <span className="text-sm">{item.label}</span>
-              </button>
-            ))}
+            {navItems.map((item) => {
+              if (['my-trips', 'my-requests'].includes(item.id) && !canSeePersonalTabs) return null;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl transition-all duration-300 group ${
+                    activeTab === item.id ? 'bg-emerald-50 text-emerald-600 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <item.icon size={18} className={activeTab === item.id ? 'text-emerald-600' : 'text-slate-500 group-hover:text-emerald-600'} />
+                  <span className="text-sm">{item.label}</span>
+                </button>
+              );
+            })}
 
             <button
               type="button"
@@ -516,7 +520,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
               </div>
             )}
 
-            <div className="bg-white/95 backdrop-blur-2xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-[28px] px-3 py-2 flex items-center justify-between gap-1 w-full max-w-[420px] relative">
+            <div className="bg-white/95 backdrop-blur-2xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-[28px] px-3 py-2 flex items-center justify-around gap-1 w-full max-w-[420px] relative">
               <MobileNavItem 
                 id="search" 
                 icon={Search} 
@@ -525,13 +529,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                 onClick={() => setActiveTab('search')} 
               />
               
-              <MobileNavItem 
-                id="my-trips" 
-                icon={Car} 
-                label="Chuyến" 
-                isActive={activeTab === 'my-trips'} 
-                onClick={() => setActiveTab('my-trips')} 
-              />
+              {canSeePersonalTabs && (
+                <MobileNavItem 
+                  id="my-trips" 
+                  icon={Car} 
+                  label="Chuyến" 
+                  isActive={activeTab === 'my-trips'} 
+                  onClick={() => setActiveTab('my-trips')} 
+                />
+              )}
 
               {/* Central Main Button */}
               <MobileNavItem 
@@ -543,13 +549,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                   onClick={() => setActiveTab('post')} 
               />
 
-              <MobileNavItem 
-                id="my-requests" 
-                icon={Ticket} 
-                label="Yêu cầu" 
-                isActive={activeTab === 'my-requests'} 
-                onClick={() => setActiveTab('my-requests')} 
-              />
+              {canSeePersonalTabs && (
+                <MobileNavItem 
+                  id="my-requests" 
+                  icon={Ticket} 
+                  label="Yêu cầu" 
+                  isActive={activeTab === 'my-requests'} 
+                  onClick={() => setActiveTab('my-requests')} 
+                />
+              )}
 
               {isStaff ? (
                 <MobileNavItem 
