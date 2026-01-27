@@ -95,7 +95,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
   const mainContentRef = useRef<HTMLDivElement>(null);
 
   const isStaff = profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'driver';
-  const canSeePersonalTabs = profile && (profile.role === 'user' || profile.role === 'driver');
+  const canSeePersonalTabs = profile && (profile.role === 'user' || profile.role === 'driver' || profile.role === 'admin');
   const roleConfig = getRoleConfig(profile?.role);
   const RoleIcon = roleConfig.icon;
   const tierConfig = getTierConfig(profile?.membership_tier);
