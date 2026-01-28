@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Layout from './components/Layout.tsx';
 import Dashboard from './components/Dashboard.tsx';
@@ -54,6 +55,7 @@ const App: React.FC = () => {
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [selectedTripBookings, setSelectedTripBookings] = useState<Booking[]>([]); 
   
+  const [isPostTripModalOpen, setIsPostTripModalOpen] = useState(false); // New state for PostTrip Modal
   const [postTripMode, setPostTripMode] = useState<'DRIVER' | 'PASSENGER'>('DRIVER');
 
   const [alertConfig, setAlertConfig] = useState<AlertConfig>({
@@ -96,7 +98,7 @@ const App: React.FC = () => {
 
   const [appSettings, setAppSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem(SETTINGS_KEY);
-    return saved ? JSON.parse(saved) : { showCancelled: false, historyDays: 30 };
+    return saved ? JSON.parse(saved) : { showCancelled: false, showPastTrips: false, historyDays: 30 };
   });
 
   const handleSaveSettings = (newSettings: AppSettings) => {
@@ -422,9 +424,16 @@ const App: React.FC = () => {
 
     return trips.filter(trip => {
       const departureDate = new Date(trip.departure_time);
+      
+      // Filter out trips older than history limit
       if (departureDate < new Date()) {
          if (departureDate < cutoffDate) return false;
       }
+
+      // We REMOVED the global check for !appSettings.showPastTrips here
+      // to allow history to be shown in management views.
+      // SearchTrips component will implement its own filter for future trips only.
+
       if (!appSettings.showCancelled && trip.status === TripStatus.CANCELLED) {
         return false;
       }
@@ -517,6 +526,8 @@ const App: React.FC = () => {
       if (error) throw error;
       refreshAllData();
       
+      // Auto close modal handled by props in PostTrip
+      setIsPostTripModalOpen(false); 
       setActiveTab('manage-trips'); 
     } catch (err: any) { 
       showAlert({ title: 'Đăng chuyến thất bại', message: err.message || 'Đã có lỗi xảy ra, vui lòng thử lại.', variant: 'danger', confirmText: 'Đóng' });
@@ -581,15 +592,17 @@ const App: React.FC = () => {
         return;
     }
     setPostTripMode(mode);
-    setActiveTab('post');
+    setIsPostTripModalOpen(true);
   };
 
   const renderContent = () => {
     const commonProps = { trips: filteredTrips, onBook: handleOpenBookingModal, userBookings: filteredBookings, profile, onViewTripDetails: handleViewTripDetails, onPostClick: handlePostClick };
     switch (activeTab) {
-      case 'dashboard': return profile && ['admin', 'manager', 'driver'].includes(profile.role) ? <Dashboard bookings={filteredStaffBookings} trips={filteredTrips} /> : <SearchTrips {...commonProps} />;
+      case 'dashboard-overview': return profile && ['admin', 'manager', 'driver'].includes(profile.role) ? <Dashboard bookings={filteredStaffBookings} trips={filteredTrips} profile={profile} onViewTripDetails={handleViewTripDetails} currentView="overview" /> : <SearchTrips {...commonProps} />;
+      case 'dashboard-schedule': return profile && ['admin', 'manager', 'driver'].includes(profile.role) ? <Dashboard bookings={filteredStaffBookings} trips={filteredTrips} profile={profile} onViewTripDetails={handleViewTripDetails} currentView="schedule" /> : <SearchTrips {...commonProps} />;
+      // Fallback for old link if any
+      case 'dashboard': return profile && ['admin', 'manager', 'driver'].includes(profile.role) ? <Dashboard bookings={filteredStaffBookings} trips={filteredTrips} profile={profile} onViewTripDetails={handleViewTripDetails} currentView="overview" /> : <SearchTrips {...commonProps} />;
       case 'search': return <SearchTrips {...commonProps} />;
-      case 'post': return <PostTrip onPost={handlePostTrip} profile={profile} onManageVehicles={() => setIsVehicleModalOpen(true)} initialMode={postTripMode} />;
       case 'manage-trips': return <TripManagement profile={profile} trips={filteredTrips} bookings={filteredStaffBookings} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
       case 'manage-orders': return <OrderManagement profile={profile} trips={filteredTrips} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
       case 'admin': return (profile?.role === 'admin' || profile?.role === 'manager') ? <AdminPanel showAlert={showAlert} /> : <SearchTrips {...commonProps} />;
@@ -612,6 +625,7 @@ const App: React.FC = () => {
         pendingOrderCount={pendingOrderCount}
         activeTripsCount={activeTripsCount}
         activeBookingsCount={activeBookingsCount}
+        onPostClick={handlePostClick}
       >
         <div className="animate-slide-up">{renderContent()}</div>
       </Layout>
@@ -640,6 +654,16 @@ const App: React.FC = () => {
         confirmText={alertConfig.confirmText}
         cancelText={alertConfig.cancelText}
         variant={alertConfig.variant}
+      />
+
+      {/* New PostTrip Modal */}
+      <PostTrip 
+        isOpen={isPostTripModalOpen}
+        onClose={() => setIsPostTripModalOpen(false)}
+        onPost={handlePostTrip}
+        profile={profile}
+        onManageVehicles={() => setIsVehicleModalOpen(true)}
+        initialMode={postTripMode}
       />
     </>
   );

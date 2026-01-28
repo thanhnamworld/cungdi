@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Search as SearchIcon, MapPin, Calendar, Clock, User, ChevronRight, Star, LayoutGrid, CalendarDays, ChevronDown, Car, CarFront, Sparkles, Crown, DollarSign, ArrowUpDown, Filter, Check, X, History, Users, ArrowRight, AlertCircle, Timer, Zap, CheckCircle2, Play, Radio, Shield, Settings, Hash, Navigation, ClipboardList, Repeat, Send, Loader2, Map as MapIcon, Plus, Info, Ban, ListChecks, Ticket, Layers, Gem, Handshake
+import { Search as SearchIcon, MapPin, Calendar, Clock, User, ChevronRight, Star, LayoutGrid, CalendarDays, ChevronDown, Car, CarFront, Sparkles, Crown, DollarSign, ArrowUpDown, Filter, Check, X, History, Users, ArrowRight, AlertCircle, Timer, Zap, CheckCircle2, Play, Radio, Shield, Settings, Hash, Navigation, ClipboardList, Repeat, Send, Loader2, Map as MapIcon, Plus, Info, Ban, ListChecks, Ticket, Layers, Gem, Handshake, XCircle
 } from 'lucide-react';
 import { Trip, TripStatus, Booking, Profile } from '../types';
 import CopyableCode from './CopyableCode.tsx';
@@ -282,6 +282,21 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onBook, userBookings =
       .filter(b => b.trip_id === trip.id && (b.status === 'PENDING' || b.status === 'CONFIRMED'))
       .reduce((sum, b) => sum + b.seats_booked, 0);
   }, [userBookings, trip.id]);
+
+  // Calculate stats for the footer
+  const tripStats = useMemo(() => {
+    // Note: userBookings in SearchTrips usually only contains the current user's bookings.
+    // If used in context where all bookings are passed, this works.
+    const relevantBookings = userBookings.filter(b => b.trip_id === trip.id);
+    return {
+        pending: relevantBookings.filter(b => b.status === 'PENDING').length,
+        confirmed: relevantBookings.filter(b => b.status === 'CONFIRMED').length,
+        pickedUp: relevantBookings.filter(b => b.status === 'PICKED_UP').length,
+        onBoard: relevantBookings.filter(b => b.status === 'ON_BOARD').length,
+        cancelled: relevantBookings.filter(b => b.status === 'CANCELLED').length,
+        total: relevantBookings.length
+    };
+  }, [userBookings, trip.id]);
   
   const isTripOwner = profile?.id === trip.driver_id;
   const hasBooked = totalSeatsBooked > 0;
@@ -375,7 +390,7 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onBook, userBookings =
               </span>
             ) : (
               <span className="text-[8px] font-bold text-slate-500">
-                Còn {trip.available_seats}/{trip.seats} ghế trống
+                Còn {trip.available_seats}/${trip.seats} ghế trống
               </span>
             )}
             <div className="w-16 bg-slate-100 h-1 rounded-full overflow-hidden mt-0.5">
@@ -468,7 +483,29 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onBook, userBookings =
 
       </div>
 
-      <div className="mt-auto pt-3 border-t border-slate-100">
+      <div className="mt-auto pt-2 border-t border-slate-100">
+        
+        {/* NEW STATS ROW */}
+        {(tripStats.total > 0 || tripStats.cancelled > 0) && (
+             <div className="flex items-center justify-between mb-2 px-1 gap-2 border-b border-slate-50 pb-2">
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-amber-50 text-amber-600 border border-amber-100" title="Chờ duyệt">
+                    <Clock size={9} /> <span className="text-[9px] font-bold">{tripStats.pending}</span>
+                </div>
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100" title="Xác nhận">
+                    <CheckCircle2 size={9} /> <span className="text-[9px] font-bold">{tripStats.confirmed}</span>
+                </div>
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-cyan-50 text-cyan-600 border border-cyan-100" title="Đã đón">
+                    <MapPin size={9} /> <span className="text-[9px] font-bold">{tripStats.pickedUp}</span>
+                </div>
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100" title="Đang đi">
+                    <Play size={9} /> <span className="text-[9px] font-bold">{tripStats.onBoard}</span>
+                </div>
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-100" title="Đã huỷ">
+                    <XCircle size={9} /> <span className="text-[9px] font-bold">{tripStats.cancelled}</span>
+                </div>
+             </div>
+        )}
+
         <div className="grid grid-cols-3 items-center">
           <div className="flex justify-start">
              <div className="inline-flex items-center bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md border border-rose-100 shadow-sm">
@@ -562,6 +599,9 @@ const SearchTrips: React.FC<SearchTripsProps> = ({ trips, onBook, userBookings, 
       
       if (isRequestMode && !isTripRequest) return false;
       if (!isRequestMode && isTripRequest) return false;
+
+      // Filter out past trips strictly for Search view
+      if (new Date(t.departure_time) < new Date()) return false;
 
       const tripCode = t.trip_code || (t.id ? `T${t.id.substring(0, 5).toUpperCase()}` : '');
       const matchesSearch = removeAccents(t.origin_name).includes(searchNormalized) || 

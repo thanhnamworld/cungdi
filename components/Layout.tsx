@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  LayoutDashboard, Search, PlusCircle, Ticket, Bell, LogOut, Car, LogIn, Settings, ClipboardList, ShoppingBag, Users as UsersIcon, User, X, ChevronUp, ChevronDown, MoreHorizontal, Shield, HelpCircle, CheckCircle2, AlertCircle, Grid, Menu, Plus, FileText, ListChecks, Medal, Trophy, Gem, Heart, Award, Zap, Phone, Users
+  LayoutDashboard, Search, PlusCircle, Ticket, Bell, LogOut, Car, LogIn, Settings, ClipboardList, ShoppingBag, Users as UsersIcon, User, X, ChevronUp, ChevronDown, MoreHorizontal, Shield, HelpCircle, CheckCircle2, AlertCircle, Grid, Menu, Plus, FileText, ListChecks, Medal, Trophy, Gem, Heart, Award, Zap, Phone, Users, BarChart3, CalendarRange
 } from 'lucide-react';
 import { Notification, Profile, UserRole, MembershipTier } from '../types';
 import { supabase } from '../lib/supabase';
@@ -20,6 +21,7 @@ interface LayoutProps {
   pendingOrderCount?: number;
   activeTripsCount?: number;
   activeBookingsCount?: number;
+  onPostClick?: (mode: 'DRIVER' | 'PASSENGER') => void; 
 }
 
 const getRoleConfig = (role?: UserRole) => {
@@ -85,7 +87,17 @@ const ProfileSkeleton = () => (
     </div>
 );
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, notifications, clearNotification, profile, profileLoading, onLoginClick, onProfileClick, onOpenSettings, pendingOrderCount = 0, activeTripsCount = 0, activeBookingsCount = 0 }) => {
+type NavItem = {
+  id: string;
+  label: string;
+  icon: any;
+  onClick?: () => void;
+  children?: NavItem[];
+  badge?: number;
+  color?: string;
+};
+
+const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, notifications, clearNotification, profile, profileLoading, onLoginClick, onProfileClick, onOpenSettings, pendingOrderCount = 0, activeTripsCount = 0, activeBookingsCount = 0, onPostClick }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserGuide, setShowUserGuide] = useState(false);
   const [showMobileManageMenu, setShowMobileManageMenu] = useState(false);
@@ -143,33 +155,36 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Simplified Navigation Items
-  const mainNavItems = [
-    { id: 'search', label: 'Tìm chuyến', icon: Search },
+  const handlePostButton = () => {
+      if (onPostClick) onPostClick('DRIVER');
+  };
+
+  const mainNavItems: NavItem[] = [
+    { id: 'search', label: 'Tìm chuyến', icon: Search, color: 'text-sky-500' },
+    { id: 'post-new-trip', label: 'Đăng chuyến mới', icon: PlusCircle, onClick: handlePostButton, color: 'text-emerald-500' },
   ];
 
-  // Management items available to everyone (filtered by role inside components)
-  const personalManageItems = [
-    { id: 'manage-trips', label: 'Chuyến xe', icon: Car },
-    { id: 'manage-orders', label: 'Yêu cầu', icon: CheckCircle2 },
+  const personalManageItems: NavItem[] = [
+    { id: 'manage-trips', label: 'Chuyến xe', icon: Car, color: 'text-blue-500' },
+    { id: 'manage-orders', label: 'Yêu cầu', icon: CheckCircle2, badge: (isStaff && pendingOrderCount > 0) ? pendingOrderCount : undefined, color: 'text-orange-500' },
   ];
 
-  const adminManageItems = [
-    { id: 'dashboard', label: 'Thống kê', icon: LayoutDashboard },
-    { id: 'admin', label: 'Thành viên', icon: Users },
+  const adminManageItems: NavItem[] = [
+    { 
+        id: 'dashboard', 
+        label: 'Thống kê', 
+        icon: LayoutDashboard,
+        color: 'text-purple-500',
+        children: [
+            { id: 'dashboard-overview', label: 'Tổng quan', icon: BarChart3, color: 'text-purple-500' },
+            { id: 'dashboard-schedule', label: 'Lịch trình xe', icon: CalendarRange, color: 'text-teal-500' }
+        ]
+    },
+    { id: 'admin', label: 'Thành viên', icon: Users, color: 'text-rose-500' },
   ];
 
-  const allPossibleItems = [
-    ...mainNavItems, 
-    ...personalManageItems,
-    ...adminManageItems,
-    { id: 'post', label: 'Đăng chuyến', icon: PlusCircle },
-    { id: 'profile', label: 'Hồ sơ', icon: User }
-  ];
-
-  const activeItem = allPossibleItems.find(item => item.id === activeTab);
-  const ActiveIcon = activeItem?.icon || Car;
-  const activeLabel = activeItem?.label || 'Cùng đi';
+  const activeLabel = 'Cùng đi'; 
+  const ActiveIcon = Car;
 
   const MobileNavItem = ({ id, icon: Icon, label, onClick, isActive, isMain = false, hasBadge = false }: any) => (
     <button 
@@ -178,7 +193,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
       className={`flex flex-col items-center justify-center gap-1 transition-all duration-300 relative ${isMain ? '-mt-8' : ''} ${isActive ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}
     >
       {isMain ? (
-        <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg shadow-emerald-200 border-4 border-[#F8FAFC] transition-transform active:scale-95 ${isActive ? 'bg-emerald-700 text-white' : 'bg-emerald-600 text-white'}`}>
+        <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg shadow-emerald-200 border-4 border-[#F8FAFC] transition-transform active:scale-95 bg-emerald-600 text-white`}>
           <Icon size={28} />
         </div>
       ) : (
@@ -194,6 +209,73 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
       )}
     </button>
   );
+
+  const renderNavList = (items: NavItem[]) => {
+      return items.map((item) => {
+          const isActive = activeTab === item.id;
+          const hasChildren = item.children && item.children.length > 0;
+
+          if (hasChildren) {
+            // Check if any child is active to highlight the parent group
+            const isGroupActive = item.children?.some(child => activeTab === child.id);
+            
+            return (
+              <div key={item.id} className="w-full mb-1">
+                <div className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl transition-all duration-300 ${isGroupActive ? 'text-emerald-600' : 'text-slate-600'}`}>
+                    <item.icon size={18} className={isGroupActive ? 'text-emerald-600' : (item.color || 'text-slate-500')} />
+                    <span className={`text-sm text-left ${isGroupActive ? 'font-bold' : 'font-medium'}`}>{item.label}</span>
+                </div>
+                <div className="ml-4 pl-5 border-l-2 border-slate-100 space-y-1 mb-2">
+                  {item.children?.map(child => {
+                    const isChildActive = activeTab === child.id;
+                    return (
+                      <button
+                        key={child.id}
+                        onClick={() => setActiveTab(child.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs transition-all ${
+                          isChildActive 
+                            ? 'text-emerald-600 bg-emerald-100 font-bold' 
+                            : 'text-slate-600 font-medium hover:bg-emerald-50 hover:text-emerald-700'
+                        }`}
+                      >
+                        <child.icon size={14} className={isChildActive ? child.color || 'text-emerald-600' : 'text-slate-500'}/>
+                        <span>{child.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          }
+
+          return (
+            <div key={item.id} className="w-full">
+                <button
+                    type="button"
+                    onClick={() => {
+                        if (item.onClick) {
+                            item.onClick();
+                        } else {
+                            setActiveTab(item.id);
+                        }
+                    }}
+                    className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative ${
+                        isActive ? 'bg-emerald-50 text-emerald-600 font-bold' : 'text-slate-600 font-medium hover:bg-emerald-50 hover:text-emerald-700'
+                    }`}
+                >
+                    <item.icon size={18} className={isActive ? 'text-emerald-600' : `${item.color || 'text-slate-500'} group-hover:text-emerald-600`} />
+                    <span className="text-sm flex-1 text-left">{item.label}</span>
+                    
+                    {item.badge !== undefined && item.badge > 0 && (
+                        <span className="bg-rose-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm shadow-rose-200">
+                            {item.badge}
+                        </span>
+                    )}
+                </button>
+            </div>
+          );
+      });
+  };
 
   return (
     <div className="h-screen bg-[#F8FAFC] flex flex-col">
@@ -241,71 +323,19 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
           </button>
           
           <nav className="flex-1 space-y-1.5 overflow-y-auto custom-scrollbar pr-2">
-            {mainNavItems.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl transition-all duration-300 group ${
-                    activeTab === item.id ? 'bg-emerald-50 text-emerald-600 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
-                >
-                  <item.icon size={18} className={activeTab === item.id ? 'text-emerald-600' : 'text-slate-500 group-hover:text-emerald-600'} />
-                  <span className="text-sm">{item.label}</span>
-                </button>
-            ))}
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('post')}
-              className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl transition-all duration-300 group ${
-                activeTab === 'post' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-100 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              }`}
-            >
-              <PlusCircle size={18} className={activeTab === 'post' ? 'text-white' : 'text-slate-500 group-hover:text-emerald-600'} />
-              <span className="text-sm">Đăng chuyến mới</span>
-            </button>
+            {renderNavList(mainNavItems)}
 
             {profile && (
               <>
                 <div className="my-2 border-t border-slate-200/50"></div>
-                {personalManageItems.map(item => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setActiveTab(item.id)}
-                    className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative ${
-                      activeTab === item.id ? 'bg-emerald-50 text-emerald-600 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                    }`}
-                  >
-                    <item.icon size={18} className={activeTab === item.id ? 'text-emerald-600' : 'text-slate-500 group-hover:text-emerald-600'} />
-                    <span className="text-sm">{item.label}</span>
-                    {item.id === 'manage-orders' && pendingOrderCount > 0 && isStaff && (
-                      <span className="absolute right-4 bg-rose-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm shadow-rose-200">
-                        {pendingOrderCount}
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {renderNavList(personalManageItems)}
               </>
             )}
 
             {isStaff && (
                 <>
                     <div className="my-2 border-t border-slate-200/50"></div>
-                    {adminManageItems.map(item => (
-                        <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => setActiveTab(item.id)}
-                            className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl transition-all duration-300 group ${
-                            activeTab === item.id ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                            }`}
-                        >
-                            <item.icon size={18} className={activeTab === item.id ? 'text-indigo-600' : 'text-slate-500 group-hover:text-indigo-600'} />
-                            <span className="text-sm">{item.label}</span>
-                        </button>
-                    ))}
+                    {renderNavList(adminManageItems)}
                 </>
             )}
           </nav>
@@ -499,7 +529,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
             
             {showMobileManageMenu && (
               <div className="absolute bottom-full right-0 mb-4 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 flex flex-col gap-1 animate-in slide-in-from-bottom-2 fade-in duration-200 origin-bottom-right">
-                {[...personalManageItems, ...(isStaff ? adminManageItems : [])].map((item) => {
+                {[
+                    // Flattened list for mobile dropdown convenience
+                    ...personalManageItems, 
+                    ...(isStaff ? adminManageItems.flatMap(i => i.children ? i.children : [i]) : [])
+                ].map((item) => {
+                  if (item.id === 'post-new-trip') return null; // Skip post button here as it's main action
                   const isActive = activeTab === item.id;
                   return (
                     <button
@@ -552,8 +587,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                   icon={Plus} 
                   label="" 
                   isMain={true} 
-                  isActive={activeTab === 'post'} 
-                  onClick={() => setActiveTab('post')} 
+                  isActive={false} // Always false since it opens modal
+                  onClick={handlePostButton} 
               />
 
               <MobileNavItem 
@@ -570,7 +605,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                   icon={Grid} 
                   label="Thêm" 
                   hasBadge={pendingOrderCount > 0}
-                  isActive={adminManageItems.some(i => i.id === activeTab)} 
+                  isActive={adminManageItems.some(i => i.id === activeTab || i.children?.some(c => c.id === activeTab))} 
                   onClick={() => setShowMobileManageMenu(!showMobileManageMenu)} 
                 />
               ) : (

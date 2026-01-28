@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
-  ClipboardList, Search, Clock, ArrowUpDown, Play, CheckCircle2, XCircle, Loader2, ArrowRight, User, Car, History, Timer, X, AlertCircle, ChevronDown, Check, Phone, Calendar, Lock, LayoutList, LayoutGrid, Star, Sparkles, Radio, Info, Users, Layers, Ban, CalendarDays, Send, ListChecks
+  ClipboardList, Search, Clock, ArrowUpDown, Play, CheckCircle2, XCircle, Loader2, ArrowRight, User, Car, History, Timer, X, AlertCircle, ChevronDown, Check, Phone, Calendar, Lock, LayoutList, LayoutGrid, Star, Sparkles, Radio, Info, Users, Layers, Ban, CalendarDays, Send, ListChecks, MapPin
 } from 'lucide-react';
 import { Trip, Profile, TripStatus, Booking } from '../types';
 import { supabase } from '../lib/supabase';
@@ -278,6 +279,15 @@ const TripManagement: React.FC<TripManagementProps> = ({ profile, trips, booking
       else fillBarColor = 'bg-rose-500';
     }
     
+    // Booking Stats for Footer
+    const stats = {
+        pending: tripBookings.filter(b => b.status === 'PENDING').length,
+        confirmed: tripBookings.filter(b => b.status === 'CONFIRMED').length,
+        pickedUp: tripBookings.filter(b => b.status === 'PICKED_UP').length,
+        onBoard: tripBookings.filter(b => b.status === 'ON_BOARD').length,
+        cancelled: tripBookings.filter(b => b.status === 'CANCELLED').length
+    };
+
     const depTime = new Date(trip.departure_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
     const depDate = new Date(trip.departure_time).toLocaleDateString('vi-VN');
     const arrivalDateObj = trip.arrival_time ? new Date(trip.arrival_time) : null;
@@ -358,7 +368,27 @@ const TripManagement: React.FC<TripManagementProps> = ({ profile, trips, booking
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-3 items-center pt-3 border-t border-slate-100 mt-auto">
+        
+        {/* Stats Row (Icons Only) */}
+        <div className="flex items-center justify-between mb-2 px-1 pt-2 mt-auto border-t border-slate-50">
+             <div className="flex items-center gap-1 bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-md border border-amber-100" title="Chờ duyệt">
+                <Clock size={10} /> <span className="text-[9px] font-bold">{stats.pending}</span>
+             </div>
+             <div className="flex items-center gap-1 bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md border border-emerald-100" title="Xác nhận">
+                <CheckCircle2 size={10} /> <span className="text-[9px] font-bold">{stats.confirmed}</span>
+             </div>
+             <div className="flex items-center gap-1 bg-cyan-50 text-cyan-600 px-1.5 py-0.5 rounded-md border border-cyan-100" title="Đã đón">
+                <MapPin size={10} /> <span className="text-[9px] font-bold">{stats.pickedUp}</span>
+             </div>
+             <div className="flex items-center gap-1 bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded-md border border-indigo-100" title="Đang đi">
+                <Play size={10} /> <span className="text-[9px] font-bold">{stats.onBoard}</span>
+             </div>
+             <div className="flex items-center gap-1 bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded-md border border-rose-100" title="Đã huỷ">
+                <XCircle size={10} /> <span className="text-[9px] font-bold">{stats.cancelled}</span>
+             </div>
+        </div>
+
+        <div className="grid grid-cols-3 items-center pt-2 border-t border-slate-100">
           <div className="flex justify-start"><div className="inline-flex items-center bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md border border-rose-100 shadow-sm"><CopyableCode code={tripCode} className="text-[9px] font-black" label={tripCode} /></div></div>
           <div className="flex justify-center"><button onClick={(e) => { e.stopPropagation(); onViewTripDetails(trip); }} className="px-2 py-1 rounded-lg transition-all border shadow-sm flex items-center gap-1.5 bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100"><Info size={10} /><span className="text-[10px] font-bold">Chi tiết</span></button></div>
           <div className="flex justify-end items-center gap-1 text-[9px] font-bold text-slate-400"><Clock size={10} className="shrink-0" /><span>{createdAtTime} {createdAtDay}</span></div>
