@@ -269,7 +269,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
             {profile && (
               <>
                 <div className="my-2 border-t border-slate-200/50"></div>
-                <p className="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Quản lý</p>
                 {personalManageItems.map(item => (
                   <button
                     key={item.id}
@@ -294,7 +293,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
             {isStaff && (
                 <>
                     <div className="my-2 border-t border-slate-200/50"></div>
-                    <p className="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Hệ thống</p>
                     {adminManageItems.map(item => (
                         <button
                             key={item.id}
