@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   User, Phone, ShieldCheck, Save, Loader2, Clock, 
@@ -87,7 +88,7 @@ const ProfileManagement: React.FC<ProfileManagementProps> = ({ isOpen, onClose, 
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name);
-      setPhone(profile.phone || '');
+      setPhone(profile.phone?.replace(/^(?:\+84|84)/, '0') || '');
       // Fetch User Email securely from current session as well
       supabase.auth.getUser().then(({ data }) => {
         const userEmail = data.user?.email || profile.email || '';
@@ -423,7 +424,7 @@ const ProfileManagement: React.FC<ProfileManagementProps> = ({ isOpen, onClose, 
                     <div className="group relative">
                         <div className="relative px-3 py-1.5 rounded-xl text-[11px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-1.5 cursor-pointer hover:bg-emerald-100 transition-colors">
                             <Phone size={12} />
-                            <CopyableCode code={profile?.phone || ''} label={profile?.phone || 'Chưa có SĐT'} className="font-bold" />
+                            <CopyableCode code={profile?.phone || ''} label={profile?.phone?.replace(/^(?:\+84|84)/, '0') || 'Chưa có SĐT'} className="font-bold" />
                         </div>
                     </div>
                     </div>

@@ -36,6 +36,7 @@ export interface Trip {
   id: string;
   driver_id: string;
   driver_name?: string;
+  driver_phone?: string; // Số điện thoại tài xế (computed/joined)
   origin_name: string;
   origin_desc?: string;
   dest_name: string;

@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
-  X, Car, MapPin, Clock, Users, DollarSign, Calendar, Navigation, CheckCircle2, AlertCircle, Play, Timer, Ban, Phone, ArrowRight, Loader2, ListChecks, LucideIcon, Hash, CarFront, Zap, Crown, Shield, Trash2, Star, Radio, ArrowUpDown, Filter, ShieldCheck, Wifi, Snowflake, Droplets, Search, LayoutList, LayoutGrid, User, Info, MessageSquareQuote, ClipboardList
+  X, Car, MapPin, Clock, Users, DollarSign, Calendar, Navigation, CheckCircle2, AlertCircle, Play, Timer, Ban, Phone, ArrowRight, Loader2, ListChecks, LucideIcon, Hash, CarFront, Zap, Crown, Shield, Trash2, Star, Radio, ArrowUpDown, Filter, ShieldCheck, Wifi, Snowflake, Droplets, Search, LayoutList, LayoutGrid, User, Info, MessageSquareQuote, ClipboardList, XCircle
 } from 'lucide-react';
 import { Trip, Booking, Profile, UserRole, TripStatus } from '../types';
 import { supabase } from '../lib/supabase';
@@ -50,7 +51,7 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
 
   // --- LOGIC TÍNH TOÁN GHẾ DỰA TRÊN DANH SÁCH ORDER THỰC TẾ ---
   const { bookedSeatsCount, availableSeatsCount, revenue, bookingStats } = useMemo(() => {
-    if (!trip) return { bookedSeatsCount: 0, availableSeatsCount: 0, revenue: 0, bookingStats: { pending: 0, confirmed: 0, pickedUp: 0, onBoard: 0 } };
+    if (!trip) return { bookedSeatsCount: 0, availableSeatsCount: 0, revenue: 0, bookingStats: { pending: 0, confirmed: 0, pickedUp: 0, onBoard: 0, cancelled: 0 } };
     
     // Chỉ tính ghế từ các đơn đã XÁC NHẬN
     const confirmedBookings = currentBookings.filter(b => b.status === 'CONFIRMED');
@@ -62,7 +63,8 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
       pending: currentBookings.filter(b => b.status === 'PENDING').length,
       confirmed: currentBookings.filter(b => b.status === 'CONFIRMED').length,
       pickedUp: currentBookings.filter(b => b.status === 'PICKED_UP').length,
-      onBoard: currentBookings.filter(b => b.status === 'ON_BOARD').length
+      onBoard: currentBookings.filter(b => b.status === 'ON_BOARD').length,
+      cancelled: currentBookings.filter(b => b.status === 'CANCELLED').length
     };
 
     return { 
@@ -842,6 +844,11 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
                 <div className="flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-lg">
                     <Play size={10} className="text-indigo-500" />
                     <span className="text-[9px] font-bold text-slate-500">Đang đi: <span className="text-indigo-600 font-black ml-0.5">{bookingStats.onBoard}</span></span>
+                </div>
+                {/* New Cancelled Badge */}
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-rose-50 border border-rose-100 rounded-lg">
+                    <XCircle size={10} className="text-rose-500" />
+                    <span className="text-[9px] font-bold text-slate-500">Huỷ: <span className="text-rose-600 font-black ml-0.5">{bookingStats.cancelled}</span></span>
                 </div>
             </div>
             

@@ -16,7 +16,7 @@ interface LayoutProps {
   profileLoading: boolean;
   onLoginClick: () => void;
   onProfileClick: () => void;
-  onOpenSettings: () => void; // New prop for settings
+  onOpenSettings: () => void;
   pendingOrderCount?: number;
   activeTripsCount?: number;
   activeBookingsCount?: number;
@@ -31,7 +31,6 @@ const getRoleConfig = (role?: UserRole) => {
   }
 };
 
-// Updated to match ProfileManagement config fully
 const getTierConfig = (tier: MembershipTier = 'standard') => {
     switch (tier) {
         case 'silver': return { label: 'Bạc', icon: Medal, color: 'text-slate-500', bg: 'bg-slate-100', border: 'border-slate-200', discountVal: 10, discountLabel: '10%' };
@@ -95,8 +94,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
   const [isScrolled, setIsScrolled] = useState(false);
   const mainContentRef = useRef<HTMLDivElement>(null);
 
-  const isStaff = profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'driver';
-  const canSeePersonalTabs = profile && (profile.role === 'user' || profile.role === 'driver' || profile.role === 'admin');
+  const isStaff = profile?.role === 'admin' || profile?.role === 'manager';
   const roleConfig = getRoleConfig(profile?.role);
   const RoleIcon = roleConfig.icon;
   const tierConfig = getTierConfig(profile?.membership_tier);
@@ -122,10 +120,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
 
   const handleScrollAction = () => {
     if (isScrolled) {
-        // Scroll to Top
         mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-        // Scroll to Bottom
         mainContentRef.current?.scrollTo({ top: mainContentRef.current.scrollHeight, behavior: 'smooth' });
     }
   };
@@ -147,23 +143,26 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Updated Navigation Items
-  const navItems = [
+  // Simplified Navigation Items
+  const mainNavItems = [
     { id: 'search', label: 'Tìm chuyến', icon: Search },
-    { id: 'my-trips', label: 'Chuyến xe', icon: Car },
-    { id: 'my-requests', label: 'Yêu cầu', icon: CheckCircle2 }, // Unified Icon
   ];
 
-  const manageItems = [
-    { id: 'dashboard', label: 'Thống kê', icon: LayoutDashboard, roles: ['admin', 'manager', 'driver'] },
-    { id: 'manage-trips', label: 'Quản lý Chuyến xe', icon: Car, roles: ['admin', 'manager', 'driver'] },
-    { id: 'manage-orders', label: 'Quản lý Yêu cầu', icon: CheckCircle2, roles: ['admin', 'manager', 'driver'] }, // Unified Icon
-    { id: 'admin', label: 'Thành viên', icon: Users, roles: ['admin', 'manager'] },
+  // Management items available to everyone (filtered by role inside components)
+  const personalManageItems = [
+    { id: 'manage-trips', label: 'Chuyến xe', icon: Car },
+    { id: 'manage-orders', label: 'Yêu cầu', icon: CheckCircle2 },
+  ];
+
+  const adminManageItems = [
+    { id: 'dashboard', label: 'Thống kê', icon: LayoutDashboard },
+    { id: 'admin', label: 'Thành viên', icon: Users },
   ];
 
   const allPossibleItems = [
-    ...navItems, 
-    ...manageItems, 
+    ...mainNavItems, 
+    ...personalManageItems,
+    ...adminManageItems,
     { id: 'post', label: 'Đăng chuyến', icon: PlusCircle },
     { id: 'profile', label: 'Hồ sơ', icon: User }
   ];
@@ -201,7 +200,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
       {profile && (
         <div className="h-9 shrink-0 bg-emerald-100/80 backdrop-blur-sm border-b border-emerald-200 text-slate-700 flex items-center justify-between px-4 text-xs font-bold z-50">
           <div className="flex items-center gap-2">
-            {/* Unified Tier Badge - Matching Profile Style */}
             <div className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 border ${tierConfig.bg} ${tierConfig.color.replace('text-','text-slate-800 ')} ${tierConfig.border}`}>
                <TierIcon size={10} className={tierConfig.color} /> 
                {tierConfig.label}
@@ -243,9 +241,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
           </button>
           
           <nav className="flex-1 space-y-1.5 overflow-y-auto custom-scrollbar pr-2">
-            {navItems.map((item) => {
-              if (['my-trips', 'my-requests'].includes(item.id) && !canSeePersonalTabs) return null;
-              return (
+            {mainNavItems.map((item) => (
                 <button
                   key={item.id}
                   type="button"
@@ -257,8 +253,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                   <item.icon size={18} className={activeTab === item.id ? 'text-emerald-600' : 'text-slate-500 group-hover:text-emerald-600'} />
                   <span className="text-sm">{item.label}</span>
                 </button>
-              );
-            })}
+            ))}
 
             <button
               type="button"
@@ -271,21 +266,22 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
               <span className="text-sm">Đăng chuyến mới</span>
             </button>
 
-            {isStaff && (
+            {profile && (
               <>
                 <div className="my-2 border-t border-slate-200/50"></div>
-                {manageItems.filter(item => item.roles.includes(profile?.role || '')).map(item => (
+                <p className="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Quản lý</p>
+                {personalManageItems.map(item => (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => setActiveTab(item.id)}
                     className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative ${
                       activeTab === item.id ? 'bg-emerald-50 text-emerald-600 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
+                    }`}
                   >
                     <item.icon size={18} className={activeTab === item.id ? 'text-emerald-600' : 'text-slate-500 group-hover:text-emerald-600'} />
                     <span className="text-sm">{item.label}</span>
-                    {item.id === 'manage-orders' && pendingOrderCount > 0 && (
+                    {item.id === 'manage-orders' && pendingOrderCount > 0 && isStaff && (
                       <span className="absolute right-4 bg-rose-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm shadow-rose-200">
                         {pendingOrderCount}
                       </span>
@@ -293,6 +289,26 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                   </button>
                 ))}
               </>
+            )}
+
+            {isStaff && (
+                <>
+                    <div className="my-2 border-t border-slate-200/50"></div>
+                    <p className="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Hệ thống</p>
+                    {adminManageItems.map(item => (
+                        <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setActiveTab(item.id)}
+                            className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl transition-all duration-300 group ${
+                            activeTab === item.id ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                            }`}
+                        >
+                            <item.icon size={18} className={activeTab === item.id ? 'text-indigo-600' : 'text-slate-500 group-hover:text-indigo-600'} />
+                            <span className="text-sm">{item.label}</span>
+                        </button>
+                    ))}
+                </>
             )}
           </nav>
 
@@ -350,14 +366,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
               </div>
             </div>
 
-            {/* Center: Absolute Road Animation (Visible on Desktop only) */}
+            {/* Center: Absolute Road Animation */}
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md hidden md:block z-10 pointer-events-none">
                 <RoadAnimation />
             </div>
 
             {/* Right: Actions */}
             <div className="flex items-center gap-2 z-20">
-              {/* Settings Button */}
               <button
                 type="button"
                 onClick={onOpenSettings}
@@ -380,7 +395,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                     </span>
                   )}
                 </button>
-                
                 {showNotifications && (
                   <div className="absolute top-full right-0 mt-2 w-80 bg-white border border-slate-100 rounded-3xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                     <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
@@ -421,7 +435,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                 )}
               </div>
 
-              {/* Mobile Profile/Login Button - Always visible on Header for Mobile */}
               <button
                   type="button"
                   onClick={profile ? onProfileClick : onLoginClick}
@@ -448,35 +461,26 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
             {children}
           </div>
 
-          {/* Floating Action Buttons Container */}
           <div className="fixed bottom-24 xl:bottom-8 right-4 xl:right-8 z-50 flex flex-col gap-2.5">
-              {/* Scroll Button */}
               <button
                   onClick={handleScrollAction}
                   className="w-9 h-9 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-700 transition-all active:scale-90 animate-in fade-in zoom-in-95"
-                  aria-label={isScrolled ? "Cuộn lên đầu trang" : "Cuộn xuống cuối trang"}
               >
                   <div className={`transition-transform duration-500 ease-in-out ${isScrolled ? 'rotate-0' : 'rotate-180'}`}>
                       <ChevronUp size={18} />
                   </div>
               </button>
-
-              {/* User Guide Button - Chuyển sang màu Indigo */}
               <button
                   onClick={() => setShowUserGuide(true)}
                   className="w-9 h-9 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-all active:scale-90 animate-in fade-in zoom-in-95"
-                  title="Hướng dẫn sử dụng"
               >
                   <HelpCircle size={18} />
               </button>
-
-              {/* Zalo Button - Sử dụng Logo Zalo chính thức - Thu nhỏ còn 90% */}
               <a
                   href="https://zalo.me/0852659956"
                   target="_blank"
                   rel="noreferrer"
                   className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all active:scale-90 animate-in fade-in zoom-in-95 overflow-hidden border border-slate-100"
-                  title="Chat Zalo tổng đài: 0852659956"
               >
                   <img 
                     src="https://upload.wikimedia.org/wikipedia/commons/9/91/Icon_of_Zalo.svg" 
@@ -484,12 +488,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                     className="w-full h-full object-cover scale-90"
                   />
               </a>
-
-              {/* Hotline Button - Màu Đỏ, không nháy */}
               <a
                   href="tel:0852659956"
                   className="w-9 h-9 bg-rose-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-rose-700 transition-all active:scale-90 animate-in fade-in zoom-in-95"
-                  title="Gọi tổng đài: 0852659956"
               >
                   <Phone size={18} />
               </a>
@@ -497,10 +498,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
 
           {/* Mobile Navigation - Redesigned Floating Dock */}
           <nav className="xl:hidden fixed bottom-5 left-4 right-4 z-[70] flex justify-center" ref={mobileMenuRef}>
-            {/* Management Popover Menu */}
-            {showMobileManageMenu && isStaff && (
+            
+            {showMobileManageMenu && (
               <div className="absolute bottom-full right-0 mb-4 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 flex flex-col gap-1 animate-in slide-in-from-bottom-2 fade-in duration-200 origin-bottom-right">
-                {manageItems.filter(item => item.roles.includes(profile?.role || '')).map((item) => {
+                {[...personalManageItems, ...(isStaff ? adminManageItems : [])].map((item) => {
                   const isActive = activeTab === item.id;
                   return (
                     <button
@@ -511,7 +512,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                       <item.icon size={18} className={isActive ? 'text-emerald-600' : 'text-slate-400'} />
                       <span className="text-xs font-bold">{item.label}</span>
                       {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-600"></div>}
-                      {item.id === 'manage-orders' && pendingOrderCount > 0 && (
+                      {item.id === 'manage-orders' && pendingOrderCount > 0 && isStaff && (
                         <span className="ml-auto bg-rose-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
                           {pendingOrderCount}
                         </span>
@@ -519,14 +520,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                     </button>
                   );
                 })}
-                {/* Add Profile Option to Manage Menu for Staff */}
-                <button
-                  onClick={() => { onProfileClick(); setShowMobileManageMenu(false); }}
-                  className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all hover:bg-slate-50 text-slate-600 border-t border-slate-50 mt-1"
-                >
-                  <User size={18} className="text-slate-400" />
-                  <span className="text-xs font-bold">Hồ sơ cá nhân</span>
-                </button>
+                {profile && (
+                    <button
+                    onClick={() => { onProfileClick(); setShowMobileManageMenu(false); }}
+                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all hover:bg-slate-50 text-slate-600 border-t border-slate-50 mt-1"
+                    >
+                    <User size={18} className="text-slate-400" />
+                    <span className="text-xs font-bold">Hồ sơ cá nhân</span>
+                    </button>
+                )}
               </div>
             )}
 
@@ -539,17 +541,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                 onClick={() => setActiveTab('search')} 
               />
               
-              {canSeePersonalTabs && (
-                <MobileNavItem 
-                  id="my-trips" 
-                  icon={Car} 
-                  label="Chuyến" 
-                  isActive={activeTab === 'my-trips'} 
-                  onClick={() => setActiveTab('my-trips')} 
-                />
-              )}
+              <MobileNavItem 
+                id="manage-trips" 
+                icon={Car} 
+                label="Chuyến xe" 
+                isActive={activeTab === 'manage-trips'} 
+                onClick={() => setActiveTab('manage-trips')} 
+              />
 
-              {/* Central Main Button */}
               <MobileNavItem 
                   id="post" 
                   icon={Plus} 
@@ -559,23 +558,21 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                   onClick={() => setActiveTab('post')} 
               />
 
-              {canSeePersonalTabs && (
-                <MobileNavItem 
-                  id="my-requests" 
-                  icon={CheckCircle2} 
-                  label="Yêu cầu" 
-                  isActive={activeTab === 'my-requests'} 
-                  onClick={() => setActiveTab('my-requests')} 
-                />
-              )}
+              <MobileNavItem 
+                id="manage-orders" 
+                icon={CheckCircle2} 
+                label="Yêu cầu" 
+                isActive={activeTab === 'manage-orders'} 
+                onClick={() => setActiveTab('manage-orders')} 
+              />
 
               {isStaff ? (
                 <MobileNavItem 
                   id="manage" 
                   icon={Grid} 
-                  label="Quản lý" 
+                  label="Thêm" 
                   hasBadge={pendingOrderCount > 0}
-                  isActive={manageItems.some(i => i.id === activeTab)} 
+                  isActive={adminManageItems.some(i => i.id === activeTab)} 
                   onClick={() => setShowMobileManageMenu(!showMobileManageMenu)} 
                 />
               ) : (
@@ -591,7 +588,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
           </nav>
         </main>
       </div>
-      {/* User Guide Modal */}
       <UserGuideModal isOpen={showUserGuide} onClose={() => setShowUserGuide(false)} profile={profile} />
     </div>
   );

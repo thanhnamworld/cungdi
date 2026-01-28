@@ -616,7 +616,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ showAlert }) => {
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-4">
                     <p className="text-xs text-slate-500 mb-1">Người dùng:</p>
                     <p className="font-bold text-slate-800">{passwordResetUser.full_name}</p>
-                    <p className="text-xs text-slate-400">{passwordResetUser.phone ? passwordResetUser.phone.replace(/^\+?84/, '0') : 'Không có SĐT'}</p>
+                    <p className="text-xs text-slate-400">{passwordResetUser.phone ? passwordResetUser.phone.replace(/^(?:\+84|84)/, '0') : 'Không có SĐT'}</p>
                 </div>
 
                 <div className="space-y-4">
@@ -764,7 +764,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ showAlert }) => {
                                                 <a href={`tel:${user.phone}`} onClick={(e) => e.stopPropagation()} className="w-5 h-5 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100 shrink-0">
                                                     <Phone size={8} />
                                                 </a>
-                                                <CopyableCode code={user.phone || ''} className="text-[9px] font-bold text-indigo-600 truncate" label={user.phone.replace(/^\+?84/, '0') || 'N/A'} />
+                                                <CopyableCode code={user.phone || ''} className="text-[9px] font-bold text-indigo-600 truncate" label={user.phone.replace(/^(?:\+84|84)/, '0') || 'N/A'} />
                                             </div>
                                         )}
                                     </div>
@@ -821,7 +821,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ showAlert }) => {
                 const AvatarIcon = roleStyle.icon;
                 const tripsColor = getCountLevelStyle(user.trips_count);
                 const bookingsColor = getCountLevelStyle(user.bookings_count);
-                const displayPhone = user.phone ? user.phone.replace(/^\+?84/, '0') : '';
+                const displayPhone = user.phone ? user.phone.replace(/^(?:\+84|84)/, '0') : '';
                 const isSelected = selectedIds.includes(user.id);
                 const tierConfig = getTierConfig(user.membership_tier);
                 const TierIcon = tierConfig.icon;

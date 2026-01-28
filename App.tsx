@@ -44,19 +44,56 @@ const App: React.FC = () => {
   
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalView, setAuthModalView] = useState<'login' | 'register'>('login'); // State để điều khiển view của AuthModal
+  const [authModalView, setAuthModalView] = useState<'login' | 'register'>('login'); 
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isTripDetailModalOpen, setIsTripDetailModalOpen] = useState(false); 
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false); // New state for settings
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false); 
   
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [selectedTripBookings, setSelectedTripBookings] = useState<Booking[]>([]); 
   
   const [postTripMode, setPostTripMode] = useState<'DRIVER' | 'PASSENGER'>('DRIVER');
 
-  // --- App Settings Management ---
+  const [alertConfig, setAlertConfig] = useState<AlertConfig>({
+    isOpen: false,
+    title: '',
+    message: ''
+  });
+
+  const showAlert = useCallback((config: Omit<AlertConfig, 'isOpen'>) => {
+    setAlertConfig({ ...config, isOpen: true });
+  }, []);
+
+  const closeAlert = () => {
+    setAlertConfig(prev => ({ ...prev, isOpen: false }));
+  };
+
+  useEffect(() => {
+    const autoLogin = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        console.log("Đang tự động đăng nhập...");
+        const { error } = await supabase.auth.signInWithPassword({
+          phone: '+84825846888', 
+          password: '123123'
+        });
+
+        if (error) {
+            console.error("Auto-login failed:", error);
+            showAlert({
+                title: 'Lỗi tự động đăng nhập',
+                message: error.message,
+                variant: 'danger',
+                confirmText: 'Đóng'
+            });
+        }
+      }
+    };
+    setTimeout(autoLogin, 500);
+  }, [showAlert]);
+
   const [appSettings, setAppSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem(SETTINGS_KEY);
     return saved ? JSON.parse(saved) : { showCancelled: false, historyDays: 30 };
@@ -67,15 +104,8 @@ const App: React.FC = () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
   };
 
-  const [alertConfig, setAlertConfig] = useState<AlertConfig>({
-    isOpen: false,
-    title: '',
-    message: ''
-  });
-
   const refreshTimeoutRef = useRef<number | null>(null);
 
-  // Refs for Realtime Access without re-subscription
   const userRef = useRef(user);
   const profileRef = useRef(profile);
   const tripsRef = useRef(trips);
@@ -86,15 +116,6 @@ const App: React.FC = () => {
   useEffect(() => { tripsRef.current = trips; }, [trips]);
   useEffect(() => { bookingsRef.current = bookings; }, [bookings]);
 
-  const showAlert = useCallback((config: Omit<AlertConfig, 'isOpen'>) => {
-    setAlertConfig({ ...config, isOpen: true });
-  }, []);
-
-  const closeAlert = () => {
-    setAlertConfig(prev => ({ ...prev, isOpen: false }));
-  };
-
-  // Helper để mở AuthModal với view cụ thể
   const openAuthModal = (view: 'login' | 'register' = 'login') => {
     setAuthModalView(view);
     setIsAuthModalOpen(true);
@@ -111,7 +132,6 @@ const App: React.FC = () => {
   }, []);
 
   const fetchTrips = useCallback(async () => {
-    // FIX: Thêm 'role' vào query profiles để kiểm tra chính xác đối tác giảm giá
     const { data, error } = await supabase
       .from('trips')
       .select('*, profiles(full_name, phone, role, is_discount_provider), bookings(seats_booked, status)')
@@ -122,13 +142,9 @@ const App: React.FC = () => {
     if (data) {
       const formatted = data.map((t: any) => {
         const allBookings = t.bookings || [];
-        
-        // Calculate booked seats from CONFIRMED bookings only for seat availability
         const confirmedBookings = allBookings.filter((b: any) => b.status === 'CONFIRMED');
         const bookedSeats = confirmedBookings.reduce((sum: number, b: any) => sum + b.seats_booked, 0);
         const realAvailableSeats = t.seats - bookedSeats;
-
-        // Calculate active offers for passenger requests (is_request trips)
         const activeOffers = allBookings.filter((b: any) => b.status !== 'CANCELLED' && b.status !== 'EXPIRED');
 
         return {
@@ -137,7 +153,6 @@ const App: React.FC = () => {
           driver_phone: t.profiles?.phone || '',
           trip_code: `T${t.id.substring(0, 5).toUpperCase()}`,
           bookings_count: activeOffers.length, 
-          // FIX: Chỉ hiển thị nhãn giảm giá nếu người đăng là 'driver' và có bật is_discount_provider
           is_discount_provider: (t.profiles?.role === 'driver' && t.profiles?.is_discount_provider) || false,
           available_seats: realAvailableSeats < 0 ? 0 : realAvailableSeats
         };
@@ -260,7 +275,6 @@ const App: React.FC = () => {
     else if (!isTripDetailModalOpen && !isBookingModalOpen) { setSelectedTrip(null); setSelectedTripBookings([]); }
   }, [isTripDetailModalOpen, isBookingModalOpen, selectedTrip?.id, fetchSelectedTripDetails]);
 
-  // Realtime Subscriptions & Notifications
   useEffect(() => {
     const channel = supabase.channel('app-db-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, async (payload) => {
@@ -269,7 +283,6 @@ const App: React.FC = () => {
         const { eventType, new: newRecord, old: oldRecord } = payload;
 
         if (currentUser) {
-            // 1. Notify Passenger when Booking Status changes
             if (eventType === 'UPDATE' && newRecord.passenger_id === currentUser.id && newRecord.status !== oldRecord.status) {
                 const statusLabel = bookingStatusOptions.find(s => s.value === newRecord.status)?.label || newRecord.status;
                 let title = 'Cập nhật đơn hàng';
@@ -290,7 +303,6 @@ const App: React.FC = () => {
                 addNotification(title, msg, type);
             }
 
-            // 2. Notify Driver when New Booking or Booking Cancelled
             if (currentProfile?.role === 'driver') {
                 const relevantTrip = tripsRef.current.find(t => t.id === newRecord.trip_id && t.driver_id === currentUser.id);
                 
@@ -318,8 +330,6 @@ const App: React.FC = () => {
          const { eventType, new: newRecord, old: oldRecord } = payload;
          
          if (currentUser && eventType === 'UPDATE') {
-             // 3. Notify Passenger if their trip status changes
-             // Check if user has a confirmed booking on this trip
              const myBooking = bookingsRef.current.find(b => b.trip_id === newRecord.id && b.status === 'CONFIRMED');
              
              if (myBooking && newRecord.status !== oldRecord.status) {
@@ -354,11 +364,9 @@ const App: React.FC = () => {
       const now = new Date();
       let hasGlobalChanges = false;
 
-      // Fetch all trips with bookings to verify consistency and auto-heal
       const { data: latestTrips } = await supabase.from('trips').select('*, bookings(seats_booked, status)');
       
       for (const trip of latestTrips || []) {
-        // 1. Self-healing: Recalculate available_seats based on CONFIRMED bookings
         const confirmedBookings = trip.bookings?.filter((b: any) => b.status === 'CONFIRMED') || [];
         const bookedSeats = confirmedBookings.reduce((sum: number, b: any) => sum + b.seats_booked, 0);
         const realAvailable = trip.seats - bookedSeats;
@@ -370,7 +378,6 @@ const App: React.FC = () => {
 
         if (trip.status === TripStatus.CANCELLED || trip.status === TripStatus.COMPLETED) continue;
         
-        // 2. Auto-update Trip Status based on time
         const departure = new Date(trip.departure_time);
         const arrival = trip.arrival_time ? new Date(trip.arrival_time) : new Date(departure.getTime() + 3 * 60 * 60 * 1000);
         let targetStatus = trip.status;
@@ -390,7 +397,6 @@ const App: React.FC = () => {
           await supabase.from('trips').update({ status: targetStatus }).eq('id', trip.id);
         }
 
-        // 3. Auto-update Booking Status
         const { data: tripBookings } = await supabase.from('bookings').select('*').eq('trip_id', trip.id);
         for (const booking of tripBookings || []) {
           if (now >= departure && now <= arrival && (booking.status === 'CONFIRMED' || booking.status === 'PICKED_UP')) {
@@ -409,24 +415,19 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [refreshAllData]);
 
-  // --- FILTERED DATA BASED ON SETTINGS ---
   const filteredTrips = useMemo(() => {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - appSettings.historyDays);
     cutoffDate.setHours(0, 0, 0, 0);
 
     return trips.filter(trip => {
-      // 1. History Filter: If trip is in the past (based on departure), check if it's within history days
       const departureDate = new Date(trip.departure_time);
       if (departureDate < new Date()) {
          if (departureDate < cutoffDate) return false;
       }
-
-      // 2. Cancelled Filter
       if (!appSettings.showCancelled && trip.status === TripStatus.CANCELLED) {
         return false;
       }
-
       return true;
     });
   }, [trips, appSettings]);
@@ -437,18 +438,15 @@ const App: React.FC = () => {
     cutoffDate.setHours(0, 0, 0, 0);
 
     return bookings.filter(booking => {
-        const trip = booking.trip_details || trips.find(t => t.id === booking.trip_id); // Fallback
+        const trip = booking.trip_details || trips.find(t => t.id === booking.trip_id);
         const departureDate = trip ? new Date(trip.departure_time) : new Date(booking.created_at);
 
-        // 1. History Filter
         if (departureDate < new Date()) {
             if (departureDate < cutoffDate) return false;
         }
 
-        // 2. Cancelled Filter
         if (!appSettings.showCancelled) {
             if (booking.status === 'CANCELLED') return false;
-            // Also hide if trip is cancelled
             if (trip && trip.status === TripStatus.CANCELLED) return false;
         }
 
@@ -457,7 +455,6 @@ const App: React.FC = () => {
   }, [bookings, trips, appSettings]);
 
   const filteredStaffBookings = useMemo(() => {
-    // Similar filtering for staff view (Order Management)
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - appSettings.historyDays);
     cutoffDate.setHours(0, 0, 0, 0);
@@ -520,9 +517,7 @@ const App: React.FC = () => {
       if (error) throw error;
       refreshAllData();
       
-      const isMyPost = authorId === user.id;
-      const tabToActivate = (profile?.role === 'admin' || profile?.role === 'manager') ? (isMyPost ? 'my-trips' : 'manage-trips') : 'my-trips';
-      setActiveTab(tabToActivate); 
+      setActiveTab('manage-trips'); 
     } catch (err: any) { 
       showAlert({ title: 'Đăng chuyến thất bại', message: err.message || 'Đã có lỗi xảy ra, vui lòng thử lại.', variant: 'danger', confirmText: 'Đóng' });
     }
@@ -558,14 +553,11 @@ const App: React.FC = () => {
     } else {
       setIsBookingModalOpen(false);
       refreshAllData();
-      const isMyOwnBooking = passengerIdForBooking === user.id;
-      const tabToActivate = (profile?.role === 'admin' || profile?.role === 'manager') ? (isMyOwnBooking ? 'my-requests' : 'manage-orders') : 'my-requests';
-      setActiveTab(tabToActivate);
+      setActiveTab('manage-orders');
     }
   };
 
   const handleOpenBookingModal = (tripId: string) => {
-    // Nếu chưa đăng nhập -> mở AuthModal ở tab Register (Đăng ký) để khuyến khích user mới
     if (!user) { 
         openAuthModal('register');
         return; 
@@ -584,7 +576,6 @@ const App: React.FC = () => {
   const handleViewTripDetails = useCallback((trip: Trip) => { setSelectedTrip(trip); setIsTripDetailModalOpen(true); }, []);
 
   const handlePostClick = (mode: 'DRIVER' | 'PASSENGER') => {
-    // Nếu chưa đăng nhập -> mở AuthModal ở tab Register (Đăng ký)
     if (!user) {
         openAuthModal('register');
         return;
@@ -599,8 +590,6 @@ const App: React.FC = () => {
       case 'dashboard': return profile && ['admin', 'manager', 'driver'].includes(profile.role) ? <Dashboard bookings={filteredStaffBookings} trips={filteredTrips} /> : <SearchTrips {...commonProps} />;
       case 'search': return <SearchTrips {...commonProps} />;
       case 'post': return <PostTrip onPost={handlePostTrip} profile={profile} onManageVehicles={() => setIsVehicleModalOpen(true)} initialMode={postTripMode} />;
-      case 'my-trips': return <BookingsList bookings={filteredBookings} trips={filteredTrips} profile={profile} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} forcedMode="MY_POSTS" showAlert={showAlert} />;
-      case 'my-requests': return <BookingsList bookings={filteredBookings} trips={filteredTrips} profile={profile} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} forcedMode="BOOKINGS" showAlert={showAlert} />;
       case 'manage-trips': return <TripManagement profile={profile} trips={filteredTrips} bookings={filteredStaffBookings} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
       case 'manage-orders': return <OrderManagement profile={profile} trips={filteredTrips} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
       case 'admin': return (profile?.role === 'admin' || profile?.role === 'manager') ? <AdminPanel showAlert={showAlert} /> : <SearchTrips {...commonProps} />;
@@ -619,7 +608,7 @@ const App: React.FC = () => {
         profileLoading={profileLoading}
         onLoginClick={() => openAuthModal('login')} 
         onProfileClick={() => !user ? openAuthModal('register') : setIsProfileModalOpen(true)} 
-        onOpenSettings={() => setIsSettingsModalOpen(true)} // Pass settings handler
+        onOpenSettings={() => setIsSettingsModalOpen(true)} 
         pendingOrderCount={pendingOrderCount}
         activeTripsCount={activeTripsCount}
         activeBookingsCount={activeBookingsCount}

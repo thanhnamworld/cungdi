@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { X, Phone, User, MapPin, Users, CreditCard, AlertCircle, CheckCircle2, Sparkles, Info, Navigation, Calendar, Clock, ArrowRight, Car, Map, ShieldCheck, Wifi, Snowflake, Droplets, Star, Award, Copy, GripVertical, Crown, Check, Search, Ticket, Wallet, MessageSquare, ChevronDown, Play, Timer, Zap, Gem, Trophy, Heart, Medal, UserSearch, Loader2, Handshake } from 'lucide-react';
 import { Trip, Profile, TripStatus, MembershipTier } from '../types';
@@ -74,7 +75,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
 
   useEffect(() => {
     if (isOpen) {
-      if (profile) setPhone(profile.phone || '');
+      if (profile) setPhone(profile.phone?.replace(/^(?:\+84|84)/, '0') || '');
       setPickupLocation(trip.origin_name);
       setDropoffLocation(trip.dest_name);
       setPickupDetail('');
@@ -116,9 +117,9 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
   
   useEffect(() => {
     if (selectedUser) {
-        setPhone(selectedUser.phone || '');
+        setPhone(selectedUser.phone?.replace(/^(?:\+84|84)/, '0') || '');
     } else if (!isRequest) { // Only reset phone if not a request (for drivers accepting)
-        setPhone(profile?.phone || '');
+        setPhone(profile?.phone?.replace(/^(?:\+84|84)/, '0') || '');
     }
   }, [selectedUser, profile, isRequest]);
   
@@ -350,7 +351,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
                                                 <div className="w-5 h-5 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center text-[9px] font-bold">{user.full_name.charAt(0)}</div>
                                                 <div>
                                                     <div>{user.full_name}</div>
-                                                    <div className="text-[9px] text-slate-400 font-medium">{user.phone}</div>
+                                                    <div className="text-[9px] text-slate-400 font-medium">{user.phone?.replace(/^(?:\+84|84)/, '0') || ''}</div>
                                                 </div>
                                             </button>
                                         ))}
