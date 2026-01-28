@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Clock, MapPin, Trash2, Map as MapIcon, Navigation, ExternalLink, 
@@ -214,7 +213,7 @@ const BookingsList: React.FC<BookingsListProps> = ({ bookings, trips, profile, o
 
       const departureDate = new Date(trip.departure_time);
       
-      if (trip.status === TripStatus.COMPLETED) {
+      if (trip.status === TripStatus.COMPLETED || trip.status === TripStatus.CANCELLED) {
         past.push(item);
         continue;
       }

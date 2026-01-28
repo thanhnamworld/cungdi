@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, Search, PlusCircle, Ticket, Bell, LogOut, Car, LogIn, Settings, ClipboardList, ShoppingBag, Users as UsersIcon, User, X, ChevronUp, ChevronDown, MoreHorizontal, Shield, HelpCircle, CheckCircle2, AlertCircle, Grid, Menu, Plus, FileText, ListChecks, Medal, Trophy, Gem, Heart, Award, Zap, Phone, Users
@@ -17,6 +16,7 @@ interface LayoutProps {
   profileLoading: boolean;
   onLoginClick: () => void;
   onProfileClick: () => void;
+  onOpenSettings: () => void; // New prop for settings
   pendingOrderCount?: number;
   activeTripsCount?: number;
   activeBookingsCount?: number;
@@ -86,7 +86,7 @@ const ProfileSkeleton = () => (
     </div>
 );
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, notifications, clearNotification, profile, profileLoading, onLoginClick, onProfileClick, pendingOrderCount = 0, activeTripsCount = 0, activeBookingsCount = 0 }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, notifications, clearNotification, profile, profileLoading, onLoginClick, onProfileClick, onOpenSettings, pendingOrderCount = 0, activeTripsCount = 0, activeBookingsCount = 0 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserGuide, setShowUserGuide] = useState(false);
   const [showMobileManageMenu, setShowMobileManageMenu] = useState(false);
@@ -357,6 +357,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
 
             {/* Right: Actions */}
             <div className="flex items-center gap-2 z-20">
+              {/* Settings Button */}
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className="p-2 sm:p-2.5 text-slate-500 hover:text-indigo-600 hover:bg-white rounded-xl transition-all"
+                title="Cài đặt phần mềm"
+              >
+                <Settings size={20} />
+              </button>
+
               <div className="relative" ref={notificationRef}>
                 <button 
                   type="button" 

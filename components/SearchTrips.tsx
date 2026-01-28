@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Search as SearchIcon, MapPin, Calendar, Clock, User, ChevronRight, Star, LayoutGrid, CalendarDays, ChevronDown, Car, CarFront, Sparkles, Crown, DollarSign, ArrowUpDown, Filter, Check, X, History, Users, ArrowRight, AlertCircle, Timer, Zap, CheckCircle2, Play, Radio, Shield, Settings, Hash, Navigation, ClipboardList, Repeat, Send, Loader2, Map as MapIcon, Plus, Info, Ban, ListChecks, Ticket, Layers, Gem, Handshake
 } from 'lucide-react';
@@ -520,7 +519,7 @@ const SectionHeader = ({ icon: Icon, title, count, color = 'text-emerald-600', b
 
 const SearchTrips: React.FC<SearchTripsProps> = ({ trips, onBook, userBookings, profile, onViewTripDetails, onPostClick }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [vehicleFilter, setVehicleFilter] = useState<string[]>(['ALL']);
+  const [driverFilter, setDriverFilter] = useState<string[]>(['ALL']); // Changed from vehicleFilter
   const [statusFilter, setStatusFilter] = useState<string[]>(['ALL']); 
   const [originFilter, setOriginFilter] = useState<string[]>(['ALL']); 
   const [destinationFilter, setDestinationFilter] = useState<string[]>(['ALL']); 
@@ -531,7 +530,7 @@ const SearchTrips: React.FC<SearchTripsProps> = ({ trips, onBook, userBookings, 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 800);
     return () => clearInterval(timer);
-  }, [searchTerm, vehicleFilter, statusFilter, originFilter, destinationFilter, sortOrder, isRequestMode]); 
+  }, [searchTerm, driverFilter, statusFilter, originFilter, destinationFilter, sortOrder, isRequestMode]); 
 
   const uniqueOrigins = useMemo(() => {
     const origins = new Set<string>();
@@ -543,6 +542,14 @@ const SearchTrips: React.FC<SearchTripsProps> = ({ trips, onBook, userBookings, 
     const destinations = new Set<string>();
     trips.forEach(trip => destinations.add(trip.dest_name));
     return [{ label: 'Tất cả điểm đến', value: 'ALL' }, ...Array.from(destinations).map(name => ({ label: name, value: name }))];
+  }, [trips]);
+
+  const uniqueDrivers = useMemo(() => {
+    const drivers = new Set<string>();
+    trips.forEach(trip => {
+      if (trip.driver_name) drivers.add(trip.driver_name);
+    });
+    return [{ label: 'Tất cả tài xế', value: 'ALL' }, ...Array.from(drivers).map(name => ({ label: name, value: name }))];
   }, [trips]);
 
   const filteredTrips = useMemo(() => {
@@ -560,12 +567,12 @@ const SearchTrips: React.FC<SearchTripsProps> = ({ trips, onBook, userBookings, 
                             (t.driver_name && removeAccents(t.driver_name).includes(searchNormalized)) ||
                             removeAccents(t.vehicle_info).includes(searchNormalized); 
       
-      const matchesVehicle = vehicleFilter.includes('ALL') || vehicleFilter.some(v => t.vehicle_info.includes(v));
+      const matchesDriver = driverFilter.includes('ALL') || (t.driver_name && driverFilter.includes(t.driver_name));
       const matchesStatus = statusFilter.includes('ALL') || statusFilter.includes(t.status);
       const matchesOrigin = originFilter.includes('ALL') || originFilter.includes(t.origin_name);
       const matchesDestination = destinationFilter.includes('ALL') || destinationFilter.includes(t.dest_name);
 
-      return matchesSearch && matchesVehicle && matchesStatus && matchesOrigin && matchesDestination;
+      return matchesSearch && matchesDriver && matchesStatus && matchesOrigin && matchesDestination;
     });
 
     // Default sort is always by status priority then time
@@ -592,7 +599,7 @@ const SearchTrips: React.FC<SearchTripsProps> = ({ trips, onBook, userBookings, 
     }
 
     return result;
-  }, [trips, searchTerm, vehicleFilter, statusFilter, originFilter, destinationFilter, sortOrder, isRequestMode]); 
+  }, [trips, searchTerm, driverFilter, statusFilter, originFilter, destinationFilter, sortOrder, isRequestMode]); 
 
   const groupedTrips = useMemo(() => {
     const today: Trip[] = [];
@@ -608,8 +615,8 @@ const SearchTrips: React.FC<SearchTripsProps> = ({ trips, onBook, userBookings, 
     for (const trip of filteredTrips) {
       const departureDate = new Date(trip.departure_time);
       
-      // If a trip is completed, it's considered in the past, regardless of date.
-      if (trip.status === TripStatus.COMPLETED) {
+      // If a trip is completed or cancelled, it's considered in the past, regardless of date.
+      if (trip.status === TripStatus.COMPLETED || trip.status === TripStatus.CANCELLED) {
         past.push(trip);
         continue;
       }
@@ -716,15 +723,9 @@ const SearchTrips: React.FC<SearchTripsProps> = ({ trips, onBook, userBookings, 
               onChange={(val: string[]) => { setStatusFilter(val); setLoading(true); }}
             />
             <UnifiedDropdown 
-              label="Loại xe" icon={Car} value={vehicleFilter} isVehicle={true} width="w-full lg:w-48" showCheckbox={true}
-              options={[
-                { label: 'Tất cả loại xe', value: 'ALL' },
-                { label: 'Sedan 4 chỗ', value: '4 chỗ' },
-                { label: 'SUV 7 chỗ', value: '7 chỗ' },
-                { label: 'Limo Green 7 chỗ', value: 'Limo Green' },
-                { label: 'Limousine 9 chỗ', value: 'Limousine' }
-              ]}
-              onChange={(val: string[]) => { setVehicleFilter(val); setLoading(true); }}
+              label="Tài xế" icon={User} value={driverFilter} isDriver={true} width="w-full lg:w-48" showCheckbox={true}
+              options={uniqueDrivers}
+              onChange={(val: string[]) => { setDriverFilter(val); setLoading(true); }}
             />
             <UnifiedDropdown 
               label="Điểm đi" icon={Navigation} value={originFilter} width="w-full lg:w-48" showCheckbox={true}

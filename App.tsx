@@ -13,6 +13,7 @@ import OrderManagement from './components/OrderManagement.tsx';
 import TripDetailModal from './components/TripDetailModal.tsx'; 
 import VehicleManagementModal from './components/VehicleManagementModal.tsx';
 import ConfirmationModal from './components/ConfirmationModal.tsx';
+import GlobalSettingsModal, { AppSettings } from './components/GlobalSettingsModal.tsx';
 import { Trip, Booking, TripStatus, Notification, Profile } from './types.ts';
 import { supabase } from './lib/supabase.ts';
 import { getTripStatusDisplay } from './components/SearchTrips.tsx';
@@ -27,6 +28,8 @@ type AlertConfig = {
   cancelText?: string;
   variant?: 'danger' | 'success' | 'info' | 'warning';
 };
+
+const SETTINGS_KEY = 'tripease_app_settings';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('search');
@@ -46,10 +49,23 @@ const App: React.FC = () => {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isTripDetailModalOpen, setIsTripDetailModalOpen] = useState(false); 
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false); // New state for settings
+  
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [selectedTripBookings, setSelectedTripBookings] = useState<Booking[]>([]); 
   
   const [postTripMode, setPostTripMode] = useState<'DRIVER' | 'PASSENGER'>('DRIVER');
+
+  // --- App Settings Management ---
+  const [appSettings, setAppSettings] = useState<AppSettings>(() => {
+    const saved = localStorage.getItem(SETTINGS_KEY);
+    return saved ? JSON.parse(saved) : { showCancelled: false, historyDays: 30 };
+  });
+
+  const handleSaveSettings = (newSettings: AppSettings) => {
+    setAppSettings(newSettings);
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
+  };
 
   const [alertConfig, setAlertConfig] = useState<AlertConfig>({
     isOpen: false,
@@ -212,23 +228,6 @@ const App: React.FC = () => {
         fetchProfile(data.session.user.id);
       } else {
         setProfileLoading(false);
-        // TEMP: Auto login for testing (COMMENTED OUT FOR RELEASE)
-        /*
-        console.log("Auto-logging in for test...");
-        try {
-          const { error } = await supabase.auth.signInWithPassword({
-            phone: '+84825846888',
-            password: '123123'
-          });
-          if (error) {
-            console.error("Auto login error:", error);
-            setProfileLoading(false);
-          }
-        } catch (e) {
-          console.error(e);
-          setProfileLoading(false);
-        }
-        */
       }
     };
     
@@ -410,23 +409,91 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [refreshAllData]);
 
+  // --- FILTERED DATA BASED ON SETTINGS ---
+  const filteredTrips = useMemo(() => {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - appSettings.historyDays);
+    cutoffDate.setHours(0, 0, 0, 0);
+
+    return trips.filter(trip => {
+      // 1. History Filter: If trip is in the past (based on departure), check if it's within history days
+      const departureDate = new Date(trip.departure_time);
+      if (departureDate < new Date()) {
+         if (departureDate < cutoffDate) return false;
+      }
+
+      // 2. Cancelled Filter
+      if (!appSettings.showCancelled && trip.status === TripStatus.CANCELLED) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [trips, appSettings]);
+
+  const filteredBookings = useMemo(() => {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - appSettings.historyDays);
+    cutoffDate.setHours(0, 0, 0, 0);
+
+    return bookings.filter(booking => {
+        const trip = booking.trip_details || trips.find(t => t.id === booking.trip_id); // Fallback
+        const departureDate = trip ? new Date(trip.departure_time) : new Date(booking.created_at);
+
+        // 1. History Filter
+        if (departureDate < new Date()) {
+            if (departureDate < cutoffDate) return false;
+        }
+
+        // 2. Cancelled Filter
+        if (!appSettings.showCancelled) {
+            if (booking.status === 'CANCELLED') return false;
+            // Also hide if trip is cancelled
+            if (trip && trip.status === TripStatus.CANCELLED) return false;
+        }
+
+        return true;
+    });
+  }, [bookings, trips, appSettings]);
+
+  const filteredStaffBookings = useMemo(() => {
+    // Similar filtering for staff view (Order Management)
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - appSettings.historyDays);
+    cutoffDate.setHours(0, 0, 0, 0);
+
+    return staffBookings.filter(booking => {
+       const trip = (booking as any).trips;
+       const departureDate = trip ? new Date(trip.departure_time) : new Date(booking.created_at);
+
+       if (departureDate < new Date() && departureDate < cutoffDate) return false;
+
+       if (!appSettings.showCancelled) {
+           if (booking.status === 'CANCELLED') return false;
+           if (trip && trip.status === TripStatus.CANCELLED) return false;
+       }
+       return true;
+    });
+  }, [staffBookings, appSettings]);
+
+
   const pendingOrderCount = useMemo(() => {
-    return staffBookings.filter(b => b.status === 'PENDING').length;
-  }, [staffBookings]);
+    return filteredStaffBookings.filter(b => b.status === 'PENDING').length;
+  }, [filteredStaffBookings]);
   
   const activeTripsCount = useMemo(() => {
     if (!profile) return 0;
     const nonTerminalTripStatus: TripStatus[] = [TripStatus.PREPARING, TripStatus.URGENT, TripStatus.FULL, TripStatus.ON_TRIP];
-    const myActiveTrips = trips.filter(t => t.driver_id === profile.id && nonTerminalTripStatus.includes(t.status)).length;
+    const myActiveTrips = filteredTrips.filter(t => t.driver_id === profile.id && nonTerminalTripStatus.includes(t.status)).length;
     return myActiveTrips;
-  }, [trips, profile]);
+  }, [filteredTrips, profile]);
 
   const activeBookingsCount = useMemo(() => {
     if (!profile) return 0;
     const nonTerminalBookingStatus = ['PENDING', 'CONFIRMED', 'PICKED_UP', 'ON_BOARD'];
-    const myActiveBookings = bookings.filter(b => nonTerminalBookingStatus.includes(b.status)).length;
+    const myActiveBookings = filteredBookings.filter(b => nonTerminalBookingStatus.includes(b.status)).length;
     return myActiveBookings;
-  }, [bookings, profile]);
+  }, [filteredBookings, profile]);
 
 
   const handlePostTrip = async (tripsToPost: any[], forUserId?: string) => {
@@ -527,15 +594,15 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
-    const commonProps = { trips, onBook: handleOpenBookingModal, userBookings: bookings, profile, onViewTripDetails: handleViewTripDetails, onPostClick: handlePostClick };
+    const commonProps = { trips: filteredTrips, onBook: handleOpenBookingModal, userBookings: filteredBookings, profile, onViewTripDetails: handleViewTripDetails, onPostClick: handlePostClick };
     switch (activeTab) {
-      case 'dashboard': return profile && ['admin', 'manager', 'driver'].includes(profile.role) ? <Dashboard bookings={staffBookings} trips={trips} /> : <SearchTrips {...commonProps} />;
+      case 'dashboard': return profile && ['admin', 'manager', 'driver'].includes(profile.role) ? <Dashboard bookings={filteredStaffBookings} trips={filteredTrips} /> : <SearchTrips {...commonProps} />;
       case 'search': return <SearchTrips {...commonProps} />;
       case 'post': return <PostTrip onPost={handlePostTrip} profile={profile} onManageVehicles={() => setIsVehicleModalOpen(true)} initialMode={postTripMode} />;
-      case 'my-trips': return <BookingsList bookings={bookings} trips={trips} profile={profile} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} forcedMode="MY_POSTS" showAlert={showAlert} />;
-      case 'my-requests': return <BookingsList bookings={bookings} trips={trips} profile={profile} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} forcedMode="BOOKINGS" showAlert={showAlert} />;
-      case 'manage-trips': return <TripManagement profile={profile} trips={trips} bookings={staffBookings} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
-      case 'manage-orders': return <OrderManagement profile={profile} trips={trips} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
+      case 'my-trips': return <BookingsList bookings={filteredBookings} trips={filteredTrips} profile={profile} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} forcedMode="MY_POSTS" showAlert={showAlert} />;
+      case 'my-requests': return <BookingsList bookings={filteredBookings} trips={filteredTrips} profile={profile} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} forcedMode="BOOKINGS" showAlert={showAlert} />;
+      case 'manage-trips': return <TripManagement profile={profile} trips={filteredTrips} bookings={filteredStaffBookings} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
+      case 'manage-orders': return <OrderManagement profile={profile} trips={filteredTrips} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
       case 'admin': return (profile?.role === 'admin' || profile?.role === 'manager') ? <AdminPanel showAlert={showAlert} /> : <SearchTrips {...commonProps} />;
       default: return <SearchTrips {...commonProps} />;
     }
@@ -550,8 +617,9 @@ const App: React.FC = () => {
         clearNotification={(id) => setNotifications(n => n.map(x => x.id === id ? {...x, read: true} : x))} 
         profile={profile}
         profileLoading={profileLoading}
-        onLoginClick={() => openAuthModal('login')} // Nút đăng nhập tường minh -> Vẫn là Login
-        onProfileClick={() => !user ? openAuthModal('register') : setIsProfileModalOpen(true)} // Click vào avatar placeholder -> Register để tạo tài khoản
+        onLoginClick={() => openAuthModal('login')} 
+        onProfileClick={() => !user ? openAuthModal('register') : setIsProfileModalOpen(true)} 
+        onOpenSettings={() => setIsSettingsModalOpen(true)} // Pass settings handler
         pendingOrderCount={pendingOrderCount}
         activeTripsCount={activeTripsCount}
         activeBookingsCount={activeBookingsCount}
@@ -564,6 +632,13 @@ const App: React.FC = () => {
       {selectedTrip && <TripDetailModal trip={selectedTrip} currentBookings={selectedTripBookings} profile={profile} isOpen={isTripDetailModalOpen} onClose={() => { setIsTripDetailModalOpen(false); refreshAllData(); }} onRefresh={() => fetchSelectedTripDetails(selectedTrip.id)} showAlert={showAlert} />}
       <VehicleManagementModal isOpen={isVehicleModalOpen} onClose={() => setIsVehicleModalOpen(false)} profile={profile} onVehiclesUpdated={refreshAllData} showAlert={showAlert} />
       
+      <GlobalSettingsModal 
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        settings={appSettings}
+        onSave={handleSaveSettings}
+      />
+
       <ConfirmationModal 
         isOpen={alertConfig.isOpen}
         title={alertConfig.title}

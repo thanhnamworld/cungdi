@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   ClipboardList, Search, Clock, ArrowUpDown, Play, CheckCircle2, XCircle, Loader2, ArrowRight, User, Car, History, Timer, X, AlertCircle, ChevronDown, Check, Phone, Calendar, Lock, LayoutList, LayoutGrid, Star, Sparkles, Radio, Info, Users, Layers, Ban, CalendarDays, Send, ListChecks
@@ -207,7 +206,7 @@ const TripManagement: React.FC<TripManagementProps> = ({ profile, trips, booking
     for (const trip of displayTrips) {
       const departureDate = new Date(trip.departure_time);
       
-      if (trip.status === TripStatus.COMPLETED) {
+      if (trip.status === TripStatus.COMPLETED || trip.status === TripStatus.CANCELLED) {
         past.push(trip);
         continue;
       }
@@ -306,9 +305,7 @@ const TripManagement: React.FC<TripManagementProps> = ({ profile, trips, booking
           <div className="flex items-center justify-between mb-3">
             <div onClick={(e) => e.stopPropagation()} className="z-20">
               {actionLoading === trip.id ? (
-                <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100 w-28">
-                  <Loader2 className="animate-spin text-indigo-500" size={12} />
-                </div>
+                <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100 w-28"><Loader2 className="animate-spin text-indigo-500" size={12} /></div>
               ) : (
                 <TripStatusSelector value={trip.status} disabled={isCompleted || isCancelled} arrivalTime={trip.arrival_time} onChange={(newStatus) => handleUpdateStatus(trip.id, newStatus)} />
               )}

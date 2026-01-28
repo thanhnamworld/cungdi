@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   ShoppingBag, Search, CheckCircle2, XCircle, Clock, RefreshCcw, Loader2, ArrowUpDown, Navigation, Car, User, ArrowRight, Phone, DollarSign, ChevronDown, Check, X, AlertCircle, AlertTriangle, Timer, Ban, Calendar, Filter, Hash, Play, MapPin, LayoutList, LayoutGrid, Star, ClipboardList, Info, Users, Layers, MessageSquareQuote, CalendarDays, Send, History
@@ -280,8 +279,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
       // Logic changed: Group by booking creation time (order.created_at)
       const bookingDate = new Date(order.created_at);
       
-      // If trip is explicitly completed, move to history/past
-      if (trip.status === TripStatus.COMPLETED) {
+      // If trip is completed/cancelled, or the booking itself is cancelled/expired, move to history/past
+      if (trip.status === TripStatus.COMPLETED || trip.status === TripStatus.CANCELLED || order.status === 'CANCELLED' || order.status === 'EXPIRED') {
         past.push(order);
         continue;
       }
