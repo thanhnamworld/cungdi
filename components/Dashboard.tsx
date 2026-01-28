@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area 
 } from 'recharts';
-import { TrendingUp, Users, MapPin, DollarSign, ArrowUpRight, XCircle, AlertCircle, ShoppingBag, CheckCircle2, Navigation, Sparkles } from 'lucide-react';
+import { TrendingUp, Users, MapPin, DollarSign, ArrowUpRight, XCircle, AlertCircle, ShoppingBag, CheckCircle2, Navigation, Sparkles, Car, ListChecks } from 'lucide-react';
 import { Trip, Booking } from '../types';
 
 const MiniStatCard = ({ title, value, icon: Icon, color, trend }: any) => (
@@ -58,8 +58,8 @@ const Dashboard: React.FC<DashboardProps> = ({ bookings, trips }) => {
   return (
     <div className="space-y-6 animate-slide-up">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-        <MiniStatCard title="Chuyến xe" value={stats.tripsCount} icon={Navigation} color="bg-emerald-600" trend="+4" />
-        <MiniStatCard title="Yêu cầu" value={stats.bookingsCount} icon={ShoppingBag} color="bg-orange-500" />
+        <MiniStatCard title="Chuyến xe" value={stats.tripsCount} icon={Car} color="bg-emerald-600" trend="+4" />
+        <MiniStatCard title="Yêu cầu" value={stats.bookingsCount} icon={CheckCircle2} color="bg-orange-500" />
         <MiniStatCard title="Xác nhận" value={stats.confirmedCount} icon={CheckCircle2} color="bg-emerald-500" />
         <MiniStatCard title="Tỷ lệ lấp đầy" value={`${stats.fillRate}%`} icon={TrendingUp} color="bg-teal-600" />
         <MiniStatCard title="Doanh thu" value={new Intl.NumberFormat('vi-VN').format(stats.totalRevenue)} icon={DollarSign} color="bg-sky-500" />

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
-  ClipboardList, Search, Clock, ArrowUpDown, Play, CheckCircle2, XCircle, Loader2, ArrowRight, User, Car, History, Timer, X, AlertCircle, ChevronDown, Check, Phone, Calendar, Lock, LayoutList, LayoutGrid, Star, Sparkles, Radio, Info, Users, Layers, Ban, CalendarDays, Send
+  ClipboardList, Search, Clock, ArrowUpDown, Play, CheckCircle2, XCircle, Loader2, ArrowRight, User, Car, History, Timer, X, AlertCircle, ChevronDown, Check, Phone, Calendar, Lock, LayoutList, LayoutGrid, Star, Sparkles, Radio, Info, Users, Layers, Ban, CalendarDays, Send, ListChecks
 } from 'lucide-react';
 import { Trip, Profile, TripStatus, Booking } from '../types';
 import { supabase } from '../lib/supabase';
@@ -402,7 +402,7 @@ const TripManagement: React.FC<TripManagementProps> = ({ profile, trips, booking
                onClick={() => setTripTypeFilter('DEMAND')}
                className={`px-5 h-full rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${tripTypeFilter === 'DEMAND' ? 'bg-orange-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
             >
-               <Users size={14} /> Yêu cầu
+               <CheckCircle2 size={14} /> Yêu cầu
             </button>
          </div>
       </div>

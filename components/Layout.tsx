@@ -150,15 +150,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
   // Updated Navigation Items
   const navItems = [
     { id: 'search', label: 'Tìm chuyến', icon: Search },
-    { id: 'my-trips', label: 'Chuyến xe', icon: Car }, // Unified Icon
-    { id: 'my-requests', label: 'Yêu cầu', icon: ShoppingBag }, // Unified Icon
+    { id: 'my-trips', label: 'Chuyến xe', icon: Car },
+    { id: 'my-requests', label: 'Yêu cầu', icon: CheckCircle2 }, // Unified Icon
   ];
 
   const manageItems = [
     { id: 'dashboard', label: 'Thống kê', icon: LayoutDashboard, roles: ['admin', 'manager', 'driver'] },
-    { id: 'manage-trips', label: 'Quản lý Chuyến xe', icon: Car, roles: ['admin', 'manager', 'driver'] }, // Unified Icon
-    { id: 'manage-orders', label: 'Quản lý Yêu cầu', icon: ShoppingBag, roles: ['admin', 'manager', 'driver'] }, // Unified Icon
-    { id: 'admin', label: 'Thành viên', icon: Users, roles: ['admin', 'manager'] }, // Renamed & New Icon
+    { id: 'manage-trips', label: 'Quản lý Chuyến xe', icon: Car, roles: ['admin', 'manager', 'driver'] },
+    { id: 'manage-orders', label: 'Quản lý Yêu cầu', icon: CheckCircle2, roles: ['admin', 'manager', 'driver'] }, // Unified Icon
+    { id: 'admin', label: 'Thành viên', icon: Users, roles: ['admin', 'manager'] },
   ];
 
   const allPossibleItems = [
@@ -218,7 +218,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
             )}
             {activeBookingsCount > 0 && (
               <div className="flex items-center gap-1.5 bg-orange-100/70 text-orange-800 px-3 py-1 rounded-full border border-orange-200/80">
-                <Zap size={10} className="text-orange-600" />
+                <CheckCircle2 size={10} className="text-orange-600" />
                 <span className="font-bold text-[9px]">{activeBookingsCount} Yêu cầu</span>
               </div>
             )}
@@ -552,7 +552,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
               {canSeePersonalTabs && (
                 <MobileNavItem 
                   id="my-requests" 
-                  icon={ShoppingBag} 
+                  icon={CheckCircle2} 
                   label="Yêu cầu" 
                   isActive={activeTab === 'my-requests'} 
                   onClick={() => setActiveTab('my-requests')} 

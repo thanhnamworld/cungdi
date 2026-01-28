@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MapPin, Calendar, Users, Car, CheckCircle2, Navigation, Clock, Repeat, ChevronDown, Banknote, Loader2, AlertTriangle, Info, ArrowRight, DollarSign, Check, Map as MapIcon, Timer, PlusCircle, ToggleLeft, ToggleRight, Sparkles, UserSearch, X } from 'lucide-react';
+import { Send, MapPin, Calendar, Users, Car, CheckCircle2, Navigation, Clock, Repeat, ChevronDown, Banknote, Loader2, AlertTriangle, Info, ArrowRight, DollarSign, Check, Map as MapIcon, Timer, PlusCircle, ToggleLeft, ToggleRight, Sparkles, UserSearch, X, ListChecks } from 'lucide-react';
 import { getRouteDetails } from '../services/geminiService.ts';
 import { LOCAL_LOCATIONS } from '../services/locationData.ts';
 import CustomDatePicker from './CustomDatePicker.tsx';
@@ -394,7 +395,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
           className={`px-6 h-full rounded-full text-xs font-bold transition-all flex items-center gap-2 ${postMode === 'PASSENGER' ? 'bg-orange-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`} 
           onClick={() => setPostMode('PASSENGER')}
         >
-          <Users size={14} /> Tôi cần tìm xe
+          <CheckCircle2 size={14} /> Tôi cần tìm xe
         </button>
       </div>
       

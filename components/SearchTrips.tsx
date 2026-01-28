@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Search as SearchIcon, MapPin, Calendar, Clock, User, ChevronRight, Star, LayoutGrid, CalendarDays, ChevronDown, Car, CarFront, Sparkles, Crown, DollarSign, ArrowUpDown, Filter, Check, X, History, Users, ArrowRight, AlertCircle, Timer, Zap, CheckCircle2, Play, Radio, Shield, Settings, Hash, Navigation, ClipboardList, Repeat, Send, Loader2, Map as MapIcon, Plus, Info, Ban, ListChecks, Ticket, Layers, Gem, Handshake } from 'lucide-react';
+import { Search as SearchIcon, MapPin, Calendar, Clock, User, ChevronRight, Star, LayoutGrid, CalendarDays, ChevronDown, Car, CarFront, Sparkles, Crown, DollarSign, ArrowUpDown, Filter, Check, X, History, Users, ArrowRight, AlertCircle, Timer, Zap, CheckCircle2, Play, Radio, Shield, Settings, Hash, Navigation, ClipboardList, Repeat, Send, Loader2, Map as MapIcon, Plus, Info, Ban, ListChecks, Ticket, Layers, Gem, Handshake
+} from 'lucide-react';
 import { Trip, TripStatus, Booking, Profile } from '../types';
 import CopyableCode from './CopyableCode.tsx';
 import { getRouteDetails } from '../services/geminiService.ts';
@@ -659,7 +660,7 @@ const SearchTrips: React.FC<SearchTripsProps> = ({ trips, onBook, userBookings, 
             className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${isRequestMode ? 'bg-orange-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`} 
             onClick={() => setIsRequestMode(true)}
           >
-            <Users size={14} /> Yêu cầu chuyến xe
+            <CheckCircle2 size={14} /> Yêu cầu chuyến xe
           </button>
         </div>
       </div>

@@ -472,13 +472,13 @@ const BookingsList: React.FC<BookingsListProps> = ({ bookings, trips, profile, o
                  onClick={() => setViewMode('BOOKINGS')}
                  className={`px-5 h-full rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'BOOKINGS' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
               >
-                 <Ticket size={14} /> Vé đã đặt
+                 <CheckCircle2 size={14} /> Vé đã đặt
               </button>
               <button 
                  onClick={() => setViewMode('MY_POSTS')}
                  className={`px-5 h-full rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'MY_POSTS' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
               >
-                 <FileText size={14} /> Tin đã đăng
+                 <Car size={14} /> Tin đã đăng
               </button>
            </div>
         </div>
