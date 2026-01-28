@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   ShoppingBag, Search, CheckCircle2, XCircle, Clock, RefreshCcw, Loader2, ArrowUpDown, Navigation, Car, User, ArrowRight, Phone, DollarSign, ChevronDown, Check, X, AlertCircle, AlertTriangle, Timer, Ban, Calendar, Filter, Hash, Play, MapPin, LayoutList, LayoutGrid, Star, ClipboardList, Info, Users, Layers, MessageSquareQuote, CalendarDays, Send, History
@@ -397,6 +398,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
     const bookingCode = `S${order.id.substring(0, 5).toUpperCase()}`;
     const isFinalStatus = order.status === 'EXPIRED' || order.status === 'CANCELLED';
     
+    const isOngoing = trip?.status === TripStatus.ON_TRIP;
+    const isUrgent = trip?.status === TripStatus.URGENT;
+    const isPreparing = trip?.status === TripStatus.PREPARING;
+    const isTripCompleted = trip?.status === TripStatus.COMPLETED; // Logic Check
+
     // Display Logic based on Request Type
     const personName = isRequest ? (order.profiles?.full_name || 'Tài xế nhận') : (order.profiles?.full_name || 'Khách vãng lai');
     const personLabel = isRequest ? 'Tài xế nhận' : 'Khách đặt';
@@ -405,10 +411,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
     const depDate = trip?.departure_time ? new Date(trip.departure_time).toLocaleDateString('vi-VN') : '--/--/----';
     const arrTime = trip?.arrival_time ? new Date(trip.arrival_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
     const arrDate = trip?.arrival_time ? new Date(trip.arrival_time).toLocaleDateString('vi-VN') : '--/--/----';
-
-    const isOngoing = trip?.status === TripStatus.ON_TRIP;
-    const isUrgent = trip?.status === TripStatus.URGENT;
-    const isPreparing = trip?.status === TripStatus.PREPARING;
 
     const createdAtTime = order.created_at ? new Date(order.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
     const createdAtDay = order.created_at ? new Date(order.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--/--';
@@ -422,10 +424,14 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
     const { pickup, dropoff } = extractLocations(order.note);
     const displayPickup = pickup || trip?.origin_name;
     const displayDropoff = dropoff || trip?.dest_name;
-    const displayPhone = order.passenger_phone ? order.passenger_phone.replace(/^\+?84/, '0') : 'N/A';
+    // const displayPhone = order.passenger_phone ? order.passenger_phone.replace(/^\+?84/, '0') : 'N/A'; // Removed from display body
+
+    // Logic to show "Completed" badge if trip is done AND booking was active
+    const isBookingActive = ['CONFIRMED', 'PICKED_UP', 'ON_BOARD'].includes(order.status);
+    const showCompletedBadge = isTripCompleted && isBookingActive;
 
     return (
-      <div key={order.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative flex flex-col justify-between ${isOngoing ? 'border-blue-200 bg-blue-50/20' : isUrgent ? 'border-rose-400 bg-rose-50/20' : isPreparing ? 'border-amber-300 bg-amber-50/10' : 'border-slate-100'} ${isFinalStatus ? 'opacity-80' : ''}`} onClick={() => onViewTripDetails(trip)}>
+      <div key={order.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative flex flex-col justify-between ${isOngoing ? 'border-blue-200 bg-blue-50/20' : isUrgent ? 'border-rose-400 bg-rose-50/20' : isPreparing ? 'border-amber-300 bg-amber-50/10' : 'border-slate-100'} ${isFinalStatus || isTripCompleted ? 'opacity-90' : ''}`} onClick={() => onViewTripDetails(trip)}>
         <div>
           {/* Header: Status Selector, Seats, Price */}
           <div className="flex items-center justify-between mb-3">
@@ -433,7 +439,13 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
               {actionLoading === order.id ? (
                 <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100 w-28"><Loader2 className="animate-spin text-indigo-500" size={12} /></div>
               ) : (
-                <BookingStatusSelector value={order.status} onChange={(newStatus) => handleUpdateStatus(order.id, newStatus)} />
+                showCompletedBadge ? (
+                    <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[9px] font-bold bg-emerald-50 text-emerald-600 border-emerald-100 cursor-default shadow-sm">
+                        <CheckCircle2 size={10} /> Hoàn thành
+                    </div>
+                ) : (
+                    <BookingStatusSelector value={order.status} onChange={(newStatus) => handleUpdateStatus(order.id, newStatus)} />
+                )
               )}
             </div>
 
@@ -461,6 +473,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
               <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[8px] font-bold truncate ${isRequest ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-orange-50 text-orange-600 border-orange-100'} flex-shrink-0 min-w-0`}>
                   {isRequest ? <Car size={9} /> : <User size={9} />} {personLabel}
               </span>
+              {/* Phone number removed from here */}
             </div>
           </div>
           
@@ -501,14 +514,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
                 </div>
               </div>
           </div>
-
-          {/* Booking Message Display (New) */}
-          {order.note && (
-              <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-100 rounded-xl flex gap-2 relative z-10">
-                  <MessageSquareQuote size={12} className="text-amber-500 shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-slate-600 font-medium line-clamp-2" title={order.note}>{order.note}</p>
-              </div>
-          )}
         </div>
 
         {/* Footer - 3 columns grid */}
@@ -520,14 +525,12 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
           </div>
           
           <div className="flex justify-center">
-              <div className="flex items-center gap-2">
-                  {order.passenger_phone && (
-                      <a href={`tel:${order.passenger_phone}`} className="w-6 h-6 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100 shrink-0" title="Gọi điện">
-                          <Phone size={10} />
-                      </a>
-                  )}
-                  <CopyableCode code={order.passenger_phone || ''} className="text-[10px] font-bold text-indigo-600 truncate" label={displayPhone} />
-              </div>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onViewTripDetails(trip); }} 
+                className="px-2 py-1 rounded-lg transition-all border shadow-sm flex items-center gap-1.5 bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100"
+              >
+                <Info size={10} /><span className="text-[10px] font-bold">Chi tiết</span>
+              </button>
           </div>
 
           <div className="flex justify-end items-center gap-1 text-[9px] font-bold text-slate-400">
@@ -688,6 +691,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
                   const priceColor = isRequest ? 'text-indigo-600' : 'text-orange-600';
                   const seatText = isRequest ? 'Nhận chuyến' : `Đặt ${order.seats_booked}/${trip?.seats} ghế`;
 
+                  const isTripCompleted = trip?.status === TripStatus.COMPLETED;
+                  const isBookingActive = ['CONFIRMED', 'PICKED_UP', 'ON_BOARD'].includes(order.status);
+                  const showCompletedBadge = isTripCompleted && isBookingActive;
+
                   // Use extracted locations
                   const { pickup, dropoff } = extractLocations(order.note);
                   const displayPickup = pickup || trip?.origin_name;
@@ -697,7 +704,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
                   return (
                     <tr 
                       key={order.id} 
-                      className={`hover:bg-slate-50/30 transition-colors ${isFinalStatus ? 'opacity-90' : ''} cursor-pointer`} 
+                      className={`hover:bg-slate-50/30 transition-colors ${isFinalStatus || isTripCompleted ? 'opacity-90' : ''} cursor-pointer`} 
                       onClick={() => onViewTripDetails(trip)}
                     >
                       <td className="px-4 py-3 pr-6">
@@ -751,7 +758,15 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
                       <td className="px-4 py-4 text-center">
                         <div className="flex flex-col items-center gap-2">
                           <div className="w-full max-w-[130px] relative" onClick={(e) => e.stopPropagation()}>
-                            {actionLoading === order.id ? <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100"><Loader2 className="animate-spin text-indigo-500" size={12} /></div> : <BookingStatusSelector value={order.status} onChange={(newStatus) => handleUpdateStatus(order.id, newStatus)} />}
+                            {actionLoading === order.id ? (
+                                <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100"><Loader2 className="animate-spin text-indigo-500" size={12} /></div> 
+                            ) : showCompletedBadge ? (
+                                <div className="flex items-center justify-center gap-1 px-2 py-1 rounded-lg border text-[9px] font-bold bg-emerald-50 text-emerald-600 border-emerald-100 cursor-default shadow-sm w-full">
+                                    <CheckCircle2 size={10} /> Hoàn thành
+                                </div>
+                            ) : (
+                                <BookingStatusSelector value={order.status} onChange={(newStatus) => handleUpdateStatus(order.id, newStatus)} />
+                            )}
                           </div>
                           {isPendingLong && !isFinalStatus && <div className="flex items-center gap-1 text-[8px] font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 shadow-sm"><AlertTriangle size={8} /> Hàng chờ {Math.floor((now - new Date(order.created_at).getTime()) / 60000)} phút</div>}
                         </div>

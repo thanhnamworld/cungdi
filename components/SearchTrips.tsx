@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Search as SearchIcon, MapPin, Calendar, Clock, User, ChevronRight, Star, LayoutGrid, CalendarDays, ChevronDown, Car, CarFront, Sparkles, Crown, DollarSign, ArrowUpDown, Filter, Check, X, History, Users, ArrowRight, AlertCircle, Timer, Zap, CheckCircle2, Play, Radio, Shield, Settings, Hash, Navigation, ClipboardList, Repeat, Send, Loader2, Map as MapIcon, Plus, Info, Ban, ListChecks, Ticket, Layers, Gem, Handshake
 } from 'lucide-react';
@@ -355,7 +356,7 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onBook, userBookings =
       return <button type="button" onClick={(e) => { e.stopPropagation(); onBook(trip.id); }} className="w-full h-10 flex items-center justify-center gap-2 rounded-xl bg-orange-500 text-white font-bold text-xs shadow-lg shadow-orange-200 hover:bg-orange-600 transition-all animate-pulse-orange"><Users size={14} /> Đặt dự phòng</button>;
     }
 
-    return <button type="button" onClick={(e) => { e.stopPropagation(); onBook(trip.id); }} className="w-full h-10 flex items-center justify-center gap-2 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all animate-pulse-blue"><Zap size={14} /> Đặt chỗ ngay</button>;
+    return <button type="button" onClick={(e) => { e.stopPropagation(); onBook(trip.id); }} className={`w-full h-10 flex items-center justify-center gap-2 rounded-xl text-white font-bold text-xs shadow-lg transition-all ${isRequest ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 animate-pulse-blue'}`}>{isRequest ? <CheckCircle2 size={14} /> : <Zap size={14} />} {isRequest ? 'Nhận chuyến ngay' : 'Đặt chỗ ngay'}</button>;
   };
 
   return (
@@ -547,9 +548,11 @@ const SearchTrips: React.FC<SearchTripsProps> = ({ trips, onBook, userBookings, 
   const uniqueDrivers = useMemo(() => {
     const drivers = new Set<string>();
     trips.forEach(trip => {
-      if (trip.driver_name) drivers.add(trip.driver_name);
+      // Only add if driver exists AND is a discount provider
+      if (trip.driver_name && trip.is_discount_provider) drivers.add(trip.driver_name);
     });
-    return [{ label: 'Tất cả tài xế', value: 'ALL' }, ...Array.from(drivers).map(name => ({ label: name, value: name }))];
+    // Label change to indicate these are partner drivers
+    return [{ label: 'Tất cả đối tác ưu đãi', value: 'ALL' }, ...Array.from(drivers).map(name => ({ label: name, value: name }))];
   }, [trips]);
 
   const filteredTrips = useMemo(() => {
