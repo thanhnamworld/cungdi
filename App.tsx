@@ -72,6 +72,8 @@ const App: React.FC = () => {
     setAlertConfig(prev => ({ ...prev, isOpen: false }));
   };
 
+  /* 
+  // --- AUTO LOGIN DISABLED FOR PRODUCTION ---
   useEffect(() => {
     const autoLogin = async () => {
       const { data } = await supabase.auth.getSession();
@@ -95,6 +97,7 @@ const App: React.FC = () => {
     };
     setTimeout(autoLogin, 500);
   }, [showAlert]);
+  */
 
   const [appSettings, setAppSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem(SETTINGS_KEY);
