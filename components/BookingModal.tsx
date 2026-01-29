@@ -62,7 +62,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
   
   // States for Staff Booking
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Profile[]>([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
 
@@ -135,12 +135,26 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
     }
     setIsSearching(true);
     searchTimeoutRef.current = window.setTimeout(async () => {
+        // 1. Tìm các user_id có xe khớp biển số trước
+        const { data: vehicles } = await supabase
+            .from('vehicles')
+            .select('user_id')
+            .ilike('license_plate', `%${searchQuery}%`);
+        
+        const vehicleUserIds = vehicles?.map(v => v.user_id) || [];
+        
+        // 2. Tạo điều kiện tìm kiếm: Tên OR SĐT OR (ID nằm trong danh sách biển số khớp)
+        let orCondition = `full_name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`;
+        if (vehicleUserIds.length > 0) {
+            orCondition += `,id.in.(${vehicleUserIds.join(',')})`;
+        }
+
         let query = supabase
             .from('profiles')
-            .select('*')
-            .or(`full_name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`);
+            .select('*, vehicles(license_plate)') // Lấy thêm thông tin xe để hiển thị
+            .or(orCondition);
         
-        // If it's a passenger request, staff should search for DRIVERS to assign to.
+        // Nếu là request (khách tìm xe), staff tìm TÀI XẾ để gán
         if (isRequest) {
             query = query.eq('role', 'driver');
         }
@@ -334,14 +348,22 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
                                     <div className="p-2 bg-indigo-50 rounded-xl flex items-center justify-between border border-indigo-100">
                                         <div className="flex items-center gap-2">
                                             <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">{selectedUser.full_name.charAt(0)}</div>
-                                            <span className="text-xs font-bold text-slate-800">{selectedUser.full_name}</span>
+                                            <div>
+                                                <span className="text-xs font-bold text-slate-800">{selectedUser.full_name}</span>
+                                                {/* Hiển thị biển số xe nếu có */}
+                                                {(selectedUser as any).vehicles && (selectedUser as any).vehicles.length > 0 && (
+                                                    <span className="text-[9px] text-slate-500 block">
+                                                        {(selectedUser as any).vehicles.map((v:any) => v.license_plate).join(', ')}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <button onClick={() => { setSelectedUser(null); setSearchQuery(''); }} className="p-1 rounded-full hover:bg-white"><X size={14} className="text-slate-400" /></button>
                                     </div>
                                 ) : (
                                     <>
                                     <div className="relative">
-                                        <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={isRequest ? "Tìm tài xế theo Tên/SĐT..." : "Tìm thành viên theo Tên/SĐT..."} className="w-full pl-8 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all"/>
+                                        <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={isRequest ? "Tìm tài xế (Tên/SĐT/Biển số)..." : "Tìm thành viên (Tên/SĐT)..."} className="w-full pl-8 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all"/>
                                         <div className="absolute left-2.5 top-1/2 -translate-y-1/2">{isSearching ? <Loader2 size={12} className="animate-spin text-slate-400" /> : <Search size={12} className="text-slate-400" />}</div>
                                     </div>
                                     {searchResults.length > 0 && (
@@ -351,7 +373,14 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
                                                 <div className="w-5 h-5 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center text-[9px] font-bold">{user.full_name.charAt(0)}</div>
                                                 <div>
                                                     <div>{user.full_name}</div>
-                                                    <div className="text-[9px] text-slate-400 font-medium">{user.phone?.replace(/^(?:\+84|84)/, '0') || ''}</div>
+                                                    <div className="flex gap-2">
+                                                        <span className="text-[9px] text-slate-400 font-medium">{user.phone?.replace(/^(?:\+84|84)/, '0') || ''}</span>
+                                                        {user.vehicles && user.vehicles.length > 0 && (
+                                                            <span className="text-[9px] bg-slate-100 px-1 rounded text-slate-500 border border-slate-200">
+                                                                {user.vehicles[0].license_plate}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </button>
                                         ))}

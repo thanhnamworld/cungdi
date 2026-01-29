@@ -366,7 +366,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ showAlert }) => {
 
     let filtered = users.filter(u => {
       const nameMatch = removeAccents(u.full_name || '').includes(searchNormalized);
-      const phoneMatch = u.phone?.includes(searchTerm);
+      const phone = u.phone ? u.phone.replace(/^(?:\+84|84)/, '0') : '';
+      const phoneMatch = phone.includes(searchTerm);
       const emailMatch = u.email && removeAccents(u.email).includes(searchNormalized);
       const matchesSearch = nameMatch || phoneMatch || emailMatch;
       
@@ -736,6 +737,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ showAlert }) => {
             const tierConfig = getTierConfig(user.membership_tier);
             const TierIcon = tierConfig.icon;
             const AvatarIcon = roleStyle.icon;
+            const displayPhone = user.phone ? user.phone.replace(/^(?:\+84|84)/, '0') : 'N/A';
             
             return (
                 <div key={user.id} className={`p-4 rounded-2xl border transition-all ${isSelected ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-white border-slate-100 shadow-sm'}`} onClick={() => toggleSelectUser(user.id)}>
@@ -764,7 +766,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ showAlert }) => {
                                                 <a href={`tel:${user.phone}`} onClick={(e) => e.stopPropagation()} className="w-5 h-5 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100 shrink-0">
                                                     <Phone size={8} />
                                                 </a>
-                                                <CopyableCode code={user.phone || ''} className="text-[9px] font-bold text-indigo-600 truncate" label={user.phone.replace(/^(?:\+84|84)/, '0') || 'N/A'} />
+                                                <CopyableCode code={user.phone || ''} className="text-[9px] font-bold text-indigo-600 truncate" label={displayPhone} />
                                             </div>
                                         )}
                                     </div>
@@ -821,7 +823,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ showAlert }) => {
                 const AvatarIcon = roleStyle.icon;
                 const tripsColor = getCountLevelStyle(user.trips_count);
                 const bookingsColor = getCountLevelStyle(user.bookings_count);
-                const displayPhone = user.phone ? user.phone.replace(/^(?:\+84|84)/, '0') : '';
+                const displayPhone = user.phone ? user.phone.replace(/^(?:\+84|84)/, '0') : 'N/A';
                 const isSelected = selectedIds.includes(user.id);
                 const tierConfig = getTierConfig(user.membership_tier);
                 const TierIcon = tierConfig.icon;
@@ -910,7 +912,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ showAlert }) => {
                                  <Phone size={10} />
                               </a>
                             )}
-                            <CopyableCode code={user.phone || ''} className="text-[11px] font-bold text-indigo-600 truncate" label={displayPhone || 'N/A'} />
+                            <CopyableCode code={user.phone || ''} className="text-[11px] font-bold text-indigo-600 truncate" label={displayPhone} />
                           </>
                         )}
                       </div>

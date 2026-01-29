@@ -221,8 +221,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
       
       const { pickup, dropoff } = extractLocations(order.note);
       const specificRoute = `${pickup || ''} ${dropoff || ''}`;
+      
+      const passengerPhone = order.passenger_phone ? order.passenger_phone.replace(/^(?:\+84|84)/, '0') : '';
 
-      const matchesSearch = (order.passenger_phone && order.passenger_phone.includes(searchTerm)) || 
+      const matchesSearch = passengerPhone.includes(searchTerm) || 
                             removeAccents(passengerName).includes(searchNormalized) || 
                             removeAccents(driverName).includes(searchNormalized) || 
                             removeAccents(bookingCode).includes(searchNormalized) || 
@@ -411,14 +413,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
     const isBookingActive = ['CONFIRMED', 'PICKED_UP', 'ON_BOARD'].includes(order.status);
     const showCompletedBadge = isTripCompleted && isBookingActive;
 
-    // Check permission to change status:
-    // User cannot change status here easily (except maybe cancel pending), usually this view is "Manage".
-    // If Profile is USER, disable changes except Cancel? For consistency, let's keep logic simple.
-    // If status is final, locked. If user is passenger, can they update? 
-    // In this component, we assume "Manage" capabilities. For strictness:
     const canManage = profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'driver';
     const isMyBooking = profile?.role === 'user' && order.passenger_id === profile?.id;
     const canCancel = isMyBooking && (order.status === 'PENDING' || order.status === 'CONFIRMED');
+    
+    const displayPhone = order.passenger_phone ? order.passenger_phone.replace(/^(?:\+84|84)/, '0') : 'N/A';
 
     return (
       <div key={order.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative flex flex-col justify-between ${isOngoing ? 'border-blue-200 bg-blue-50/20' : isUrgent ? 'border-rose-400 bg-rose-50/20' : isPreparing ? 'border-amber-300 bg-amber-50/10' : 'border-slate-100'} ${isFinalStatus || isTripCompleted ? 'opacity-90' : ''}`} onClick={() => onViewTripDetails(trip)}>
@@ -433,7 +432,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
                         <CheckCircle2 size={10} /> Hoàn thành
                     </div>
                 ) : (
-                    // Only allow changing status if staff/driver OR if user cancelling
                     <BookingStatusSelector 
                         value={order.status} 
                         onChange={(newStatus) => handleUpdateStatus(order.id, newStatus)} 

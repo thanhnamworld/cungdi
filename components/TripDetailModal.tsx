@@ -116,7 +116,7 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
       result = result.filter(b => {
         const bookingCode = `S${b.id.substring(0, 5).toUpperCase()}`;
         const name = (b as any).profiles?.full_name || '';
-        const phone = b.passenger_phone || '';
+        const phone = b.passenger_phone ? b.passenger_phone.replace(/^(?:\+84|84)/, '0') : '';
         const { pickup, dropoff, message } = parseBookingNote(b.note);
         
         return removeAccents(name).includes(searchNormalized) || 
@@ -376,7 +376,7 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
                                 </div>
                             </div>
                             <div className="flex items-center gap-3 relative z-10">
-                                <div className="w-4 h-4 rounded-full bg-emerald-100/70 flex items-center justify-center shrink-0 border border-emerald-200/50 shadow-lg shadow-emerald-200/50">
+                                <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-emerald-100/70 border-emerald-200/50 shadow-emerald-200/50">
                                 <div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div>
                                 </div>
                                 <div className="flex-1">
@@ -499,7 +499,7 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
                             // If trip is a request, the "booker" is the driver.
                             const personName = booking.profiles?.full_name || (trip.is_request ? 'Tài xế' : 'Khách vãng lai');
                             const personLabel = trip.is_request ? 'Tài xế nhận' : 'Khách đặt';
-                            const displayPhone = booking.passenger_phone ? booking.passenger_phone.replace(/^\+?84/, '0') : 'N/A';
+                            const displayPhone = booking.passenger_phone ? booking.passenger_phone.replace(/^(?:\+84|84)/, '0') : 'N/A';
                             
                             // Formatting & Visuals
                             const depTime = new Date(trip.departure_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
@@ -699,7 +699,7 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
 
                                 <div className="flex justify-between items-center">
                                     <div className="flex items-center gap-2 text-[10px] font-bold text-indigo-600">
-                                    <Phone size={12} /> {booking.passenger_phone ? booking.passenger_phone.replace(/^\+?84/, '0') : '---'}
+                                    <Phone size={12} /> {booking.passenger_phone ? booking.passenger_phone.replace(/^(?:\+84|84)/, '0') : '---'}
                                     </div>
                                     <button 
                                     onClick={() => handleDeleteBooking(booking.id, booking.seats_booked, booking.status)}
@@ -737,7 +737,7 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
                                 const displayDropoff = dropoff || trip.dest_name;
                                 const personName = booking.profiles?.full_name || (trip.is_request ? 'Tài xế' : 'Khách vãng lai');
                                 const priceColor = trip.is_request ? 'text-indigo-600' : 'text-emerald-600';
-                                const displayPhone = booking.passenger_phone ? booking.passenger_phone.replace(/^\+?84/, '0') : 'N/A';
+                                const displayPhone = booking.passenger_phone ? booking.passenger_phone.replace(/^(?:\+84|84)/, '0') : 'N/A';
 
                                 return (
                                     <tr key={booking.id} className="hover:bg-slate-50/50 transition-colors group">

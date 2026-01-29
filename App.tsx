@@ -189,7 +189,8 @@ const App: React.FC = () => {
 
   const fetchStaffBookings = useCallback(async (userProfile: Profile) => {
     if (!userProfile) return;
-    let query = supabase.from('bookings').select('*, profiles:passenger_id(full_name, phone), trips(*)').order('created_at', { ascending: false });
+    // Updated query: include driver_profile inside trips to get the driver name correctly for Dashboard filtering
+    let query = supabase.from('bookings').select('*, profiles:passenger_id(full_name, phone), trips(*, driver_profile:profiles(full_name))').order('created_at', { ascending: false });
 
     if (userProfile.role === 'driver') {
       const { data: myTrips } = await supabase.from('trips').select('id').eq('driver_id', userProfile.id);

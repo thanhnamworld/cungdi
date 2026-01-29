@@ -110,7 +110,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
   const [destSuggestions, setDestSuggestions] = useState<{name: string, uri: string}[]>([]);
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Profile[]>([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]); // Changed to any to support joined vehicles
   const [isSearching, setIsSearching] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const isStaff = profile?.role === 'admin' || profile?.role === 'manager';
@@ -150,13 +150,28 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
   }, [postMode]);
 
   const fetchUserVehicles = async () => {
+    // Priority: If selectedUser already has vehicles loaded from search/cache, use them
+    if (selectedUser && (selectedUser as any).vehicles) {
+        const preloadedVehicles = (selectedUser as any).vehicles;
+        setUserVehicles(preloadedVehicles);
+        if (preloadedVehicles.length > 0) {
+             // Only reset/default selection if we don't have a valid selection for this user
+             // Or simplified: Always select first for new user
+             setSelectedVehicleId(preloadedVehicles[0].id);
+        } else {
+             setSelectedVehicleId('');
+        }
+        return;
+    }
+
     const userIdToFetch = selectedUser?.id || profile?.id;
     if (!userIdToFetch) return;
 
     const { data, error } = await supabase.from('vehicles').select('*').eq('user_id', userIdToFetch);
     if (data) {
       setUserVehicles(data);
-      setSelectedVehicleId(data[0]?.id || '');
+      // Select the first vehicle by default when list updates
+      setSelectedVehicleId(data.length > 0 ? data[0].id : '');
     } else {
       setUserVehicles([]);
       setSelectedVehicleId('');
@@ -180,7 +195,25 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
     }
     setIsSearching(true);
     searchTimeoutRef.current = window.setTimeout(async () => {
-        let query = supabase.from('profiles').select('*').or(`full_name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`);
+        // 1. Tìm các user_id có xe khớp biển số trước
+        const { data: vehicles } = await supabase
+            .from('vehicles')
+            .select('user_id')
+            .ilike('license_plate', `%${searchQuery}%`);
+        
+        const vehicleUserIds = vehicles?.map(v => v.user_id) || [];
+        
+        // 2. Tạo điều kiện tìm kiếm: Tên OR SĐT OR (ID nằm trong danh sách biển số khớp)
+        let orCondition = `full_name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`;
+        if (vehicleUserIds.length > 0) {
+            orCondition += `,id.in.(${vehicleUserIds.join(',')})`;
+        }
+
+        let query = supabase
+            .from('profiles')
+            .select('*, vehicles(*)') // Fetch ALL vehicle info to avoid RLS issues later
+            .or(orCondition);
+
         if (postMode === 'DRIVER') {
             query = query.eq('role', 'driver');
         }
@@ -421,14 +454,22 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
                         <div className="p-2 bg-indigo-50 rounded-xl flex items-center justify-between border border-indigo-100">
                             <div className="flex items-center gap-2">
                                 <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">{selectedUser.full_name.charAt(0)}</div>
-                                <span className="text-xs font-bold text-slate-800">{selectedUser.full_name}</span>
+                                <div>
+                                    <span className="text-xs font-bold text-slate-800">{selectedUser.full_name}</span>
+                                    {/* Hiển thị biển số xe nếu có */}
+                                    {(selectedUser as any).vehicles && (selectedUser as any).vehicles.length > 0 && (
+                                        <span className="text-[9px] text-slate-500 block">
+                                            {(selectedUser as any).vehicles.map((v:any) => v.license_plate).join(', ')}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                             <button type="button" onClick={() => { setSelectedUser(null); setSearchQuery(''); }} className="p-1 rounded-full hover:bg-white"><X size={14} className="text-slate-400" /></button>
                         </div>
                     ) : (
                         <>
                         <div className="relative">
-                            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={postMode === 'DRIVER' ? 'Tìm tài xế theo Tên/SĐT...' : 'Tìm hành khách theo Tên/SĐT...'} className="w-full pl-8 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all"/>
+                            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={postMode === 'DRIVER' ? 'Tìm tài xế theo Tên/SĐT/Biển số...' : 'Tìm hành khách theo Tên/SĐT...'} className="w-full pl-8 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all"/>
                             <div className="absolute left-2.5 top-1/2 -translate-y-1/2">{isSearching ? <Loader2 size={12} className="animate-spin text-slate-400" /> : <UserSearch size={12} className="text-slate-400" />}</div>
                         </div>
                         {searchResults.length > 0 && (
@@ -438,7 +479,14 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
                                     <div className="w-5 h-5 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center text-[9px] font-bold">{user.full_name.charAt(0)}</div>
                                     <div>
                                         <div>{user.full_name} <span className="text-[9px] text-slate-400">({user.role})</span></div>
-                                        <div className="text-[9px] text-slate-400 font-medium">{user.phone}</div>
+                                        <div className="flex gap-2">
+                                            <span className="text-[9px] text-slate-400 font-medium">{user.phone}</span>
+                                            {user.vehicles && user.vehicles.length > 0 && (
+                                                <span className="text-[9px] bg-slate-100 px-1 rounded text-slate-500 border border-slate-200">
+                                                    {user.vehicles[0].license_plate}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </button>
                             ))}
@@ -449,7 +497,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className={`rounded-[32px] border border-white/50 shadow-sm overflow-hidden ${postMode === 'PASSENGER' ? 'bg-gradient-to-br from-orange-50 to-white' : 'bg-gradient-to-br from-indigo-50/50 via-purple-50/50 to-blue-50/50'}`}>
+                <form onSubmit={handleSubmit} className={`rounded-[32px] border border-white/50 shadow-sm ${postMode === 'PASSENGER' ? 'bg-gradient-to-br from-orange-50 to-white' : 'bg-gradient-to-br from-indigo-50/50 via-purple-50/50 to-blue-50/50'}`}>
                     {error && (
                     <div className="mx-4 mt-4 p-3 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600 shadow-sm animate-in slide-in-from-top-2">
                         <AlertTriangle size={18} className="shrink-0" />
@@ -635,22 +683,26 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
                                 </button>
                                 {showVehiclePicker && (
                                 <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white border border-slate-100 rounded-xl shadow-2xl p-1 animate-in fade-in zoom-in-95 duration-200">
-                                    {userVehicles.map(v => {
-                                    const config = getVehicleConfig(v.vehicle_type);
-                                    const VIcon = config.icon;
-                                    return (
-                                        <button key={v.id} type="button" onClick={() => { setSelectedVehicleId(v.id); setShowVehiclePicker(false); }} className={`w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors text-left ${selectedVehicleId === v.id ? 'bg-indigo-50/50' : ''}`}>
-                                        <div className="flex items-center gap-2">
-                                            <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-bold ${config.style}`}>
-                                            <VIcon size={10} />
-                                            <span>{v.vehicle_type}</span>
+                                    {userVehicles.length > 0 ? (
+                                        userVehicles.map(v => {
+                                        const config = getVehicleConfig(v.vehicle_type);
+                                        const VIcon = config.icon;
+                                        return (
+                                            <button key={v.id} type="button" onClick={() => { setSelectedVehicleId(v.id); setShowVehiclePicker(false); }} className={`w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors text-left ${selectedVehicleId === v.id ? 'bg-indigo-50/50' : ''}`}>
+                                            <div className="flex items-center gap-2">
+                                                <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-bold ${config.style}`}>
+                                                <VIcon size={10} />
+                                                <span>{v.vehicle_type}</span>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-slate-500">{v.license_plate}</span>
                                             </div>
-                                            <span className="text-[10px] font-bold text-slate-500">{v.license_plate}</span>
-                                        </div>
-                                        {selectedVehicleId === v.id && <Check size={12} className="text-indigo-600" />}
-                                        </button>
-                                    );
-                                    })}
+                                            {selectedVehicleId === v.id && <Check size={12} className="text-indigo-600" />}
+                                            </button>
+                                        );
+                                        })
+                                    ) : (
+                                        <div className="p-2 text-center text-[10px] text-slate-400">Không có xe nào</div>
+                                    )}
                                 </div>
                                 )}
                             </div>
