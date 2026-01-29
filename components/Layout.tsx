@@ -6,13 +6,16 @@ import {
 import { Notification, Profile, UserRole, MembershipTier } from '../types';
 import { supabase } from '../lib/supabase';
 import UserGuideModal from './UserGuideModal';
+import NotificationModal from './NotificationModal';
 
 interface LayoutProps {
   children: React.ReactNode;
   activeTab: string;
   setActiveTab: (tab: string) => void;
   notifications: Notification[];
-  clearNotification: (id: string) => void;
+  onMarkNotificationRead: (id: string) => void;
+  onMarkAllNotificationsRead: () => void;
+  onClearAllNotifications: () => void;
   profile?: Profile | null;
   profileLoading: boolean;
   onLoginClick: () => void;
@@ -97,11 +100,10 @@ type NavItem = {
   color?: string;
 };
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, notifications, clearNotification, profile, profileLoading, onLoginClick, onProfileClick, onOpenSettings, pendingOrderCount = 0, activeTripsCount = 0, activeBookingsCount = 0, onPostClick }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, notifications, onMarkNotificationRead, onMarkAllNotificationsRead, onClearAllNotifications, profile, profileLoading, onLoginClick, onProfileClick, onOpenSettings, pendingOrderCount = 0, activeTripsCount = 0, activeBookingsCount = 0, onPostClick }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserGuide, setShowUserGuide] = useState(false);
   const [showMobileManageMenu, setShowMobileManageMenu] = useState(false);
-  const notificationRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const mainContentRef = useRef<HTMLDivElement>(null);
@@ -144,9 +146,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
-        setShowNotifications(false);
-      }
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
         setShowMobileManageMenu(false);
       }
@@ -314,6 +313,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
         </div>
       )}
       <div className="flex flex-1 overflow-hidden flex-col xl:flex-row">
+        {/* Sidebar Desktop */}
         <aside className="hidden xl:flex flex-col w-72 bg-gradient-to-b from-emerald-50/80 to-indigo-50/60 border-r border-slate-100 p-8 shrink-0">
           <button
             type="button"
@@ -354,7 +354,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
               <div className="bg-gradient-to-br from-emerald-50/80 to-indigo-50/60 border border-emerald-100 p-5 rounded-[32px] space-y-4 shadow-sm backdrop-blur-sm">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-emerald-600 font-bold text-lg shadow-md border border-slate-100 shrink-0">
-                    {profile.full_name?.charAt(0) || 'U'}
+                    {profile.avatar_url ? (
+                      <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover rounded-2xl" />
+                    ) : (
+                      profile.full_name?.charAt(0) || 'U'
+                    )}
                   </div>
                   <div className="min-w-0 text-left">
                     <p className="text-sm font-bold text-slate-800 truncate leading-tight">{profile.full_name}</p>
@@ -380,8 +384,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
           </div>
         </aside>
 
+        {/* Main Content */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
           <header className="h-20 bg-gradient-to-r from-emerald-50/80 via-white/90 to-indigo-50/80 backdrop-blur-md border-b border-emerald-100/50 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-20">
+            {/* Left: Logo & Title */}
             <div className="flex items-center gap-3 z-20">
               <button 
                 type="button"
@@ -397,10 +403,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
               </button>
             </div>
 
+            {/* Center: Absolute Road Animation */}
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[140px] md:max-w-md z-10 pointer-events-none opacity-80 md:opacity-100">
                 <RoadAnimation />
             </div>
 
+            {/* Right: Actions */}
             <div className="flex items-center gap-0.5 sm:gap-2 z-20">
               <button
                 type="button"
@@ -411,57 +419,19 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                 <Settings size={20} />
               </button>
 
-              <div className="relative" ref={notificationRef}>
+              <div className="relative">
                 <button 
                   type="button" 
-                  onClick={() => setShowNotifications(!showNotifications)} 
-                  className="p-2 sm:p-2.5 text-slate-500 hover:text-emerald-600 hover:bg-white rounded-xl transition-all relative"
+                  onClick={() => setShowNotifications(true)} 
+                  className="p-2 sm:p-2.5 text-slate-500 hover:text-emerald-600 hover:bg-white rounded-xl transition-all relative group"
                 >
-                  <Bell size={20} className={unreadCount > 0 ? 'animate-bell text-rose-500' : ''} />
+                  <Bell size={20} className={unreadCount > 0 ? 'animate-bell text-emerald-600' : ''} />
                   {unreadCount > 0 && (
-                    <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 text-white text-[8px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+                    <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 text-white text-[8px] font-black flex items-center justify-center rounded-full border-2 border-white shadow-sm group-hover:scale-110 transition-transform">
                       {unreadCount}
                     </span>
                   )}
                 </button>
-                {showNotifications && (
-                  <div className="absolute top-full right-0 mt-2 w-80 bg-white border border-slate-100 rounded-3xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                    <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-                      <span className="text-xs font-bold text-slate-800">Thông báo</span>
-                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{unreadCount} mới</span>
-                    </div>
-                    <div className="max-h-96 overflow-y-auto custom-scrollbar">
-                      {notifications.length > 0 ? (
-                        notifications.map((n) => (
-                          <div 
-                            key={n.id} 
-                            className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer relative ${!n.read ? 'bg-indigo-50/30' : ''}`}
-                            onClick={() => { clearNotification(n.id); setShowNotifications(false); }}
-                          >
-                            {!n.read && <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-rose-500 rounded-full"></div>}
-                            <div className="flex gap-3">
-                              <div className={`p-2 rounded-xl shrink-0 ${n.type === 'success' ? 'bg-emerald-50 text-emerald-600' : n.type === 'warning' ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'}`}>
-                                {n.type === 'success' ? <CheckCircle2 size={14} /> : n.type === 'warning' ? <AlertCircle size={14} /> : <Bell size={14} />}
-                              </div>
-                              <div>
-                                <p className="text-[11px] font-bold text-slate-800 leading-tight">{n.title}</p>
-                                <p className="text-[10px] font-bold text-slate-600 mt-1 leading-relaxed">{n.message}</p>
-                                <p className="text-[8px] font-bold text-slate-400 mt-1">
-                                  {new Date(n.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})} • {new Date(n.timestamp).toLocaleDateString('vi-VN')}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="p-8 text-center">
-                          <Bell size={32} className="mx-auto text-slate-200 mb-2" />
-                          <p className="text-[10px] font-bold text-slate-500">Không có thông báo nào</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </header>
@@ -471,30 +441,57 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
           </div>
 
           <div className="fixed bottom-24 xl:bottom-8 right-4 xl:right-8 z-50 flex flex-col gap-2.5">
-              <button onClick={handleScrollAction} className="w-9 h-9 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-700 transition-all active:scale-90 animate-in fade-in zoom-in-95">
+              <button
+                  onClick={handleScrollAction}
+                  className="w-9 h-9 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-700 transition-all active:scale-90 animate-in fade-in zoom-in-95"
+              >
                   <div className={`transition-transform duration-500 ease-in-out ${isScrolled ? 'rotate-0' : 'rotate-180'}`}>
                       <ChevronUp size={18} />
                   </div>
               </button>
-              <button onClick={() => setShowUserGuide(true)} className="w-9 h-9 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-all active:scale-90 animate-in fade-in zoom-in-95">
+              <button
+                  onClick={() => setShowUserGuide(true)}
+                  className="w-9 h-9 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-all active:scale-90 animate-in fade-in zoom-in-95"
+              >
                   <HelpCircle size={18} />
               </button>
-              <a href="https://zalo.me/0852659956" target="_blank" rel="noreferrer" className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all active:scale-90 animate-in fade-in zoom-in-95 overflow-hidden border border-slate-100">
-                  <img src="https://upload.wikimedia.org/wikipedia/commons/9/91/Icon_of_Zalo.svg" alt="Zalo" className="w-full h-full object-cover scale-90" />
+              <a
+                  href="https://zalo.me/0852659956"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all active:scale-90 animate-in fade-in zoom-in-95 overflow-hidden border border-slate-100"
+              >
+                  <img 
+                    src="https://upload.wikimedia.org/wikipedia/commons/9/91/Icon_of_Zalo.svg" 
+                    alt="Zalo" 
+                    className="w-full h-full object-cover scale-90"
+                  />
               </a>
-              <a href="tel:0852659956" className="w-9 h-9 bg-rose-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-rose-700 transition-all active:scale-90 animate-in fade-in zoom-in-95">
+              <a
+                  href="tel:0852659956"
+                  className="w-9 h-9 bg-rose-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-rose-700 transition-all active:scale-90 animate-in fade-in zoom-in-95"
+              >
                   <Phone size={18} />
               </a>
           </div>
 
+          {/* Mobile Navigation */}
           <nav className="xl:hidden fixed bottom-5 left-4 right-4 z-[70] flex justify-center" ref={mobileMenuRef}>
+            
             {showMobileManageMenu && (
               <div className="absolute bottom-full right-0 mb-4 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 flex flex-col gap-1 animate-in slide-in-from-bottom-2 fade-in duration-200 origin-bottom-right max-h-[70vh] overflow-y-auto custom-scrollbar">
-                {[...personalManageItems.flatMap(i => i.children ? i.children : [i]), ...(isStaff ? adminManageItems.flatMap(i => i.children ? i.children : [i]) : [])].map((item) => {
+                {[
+                    ...personalManageItems.flatMap(i => i.children ? i.children : [i]), 
+                    ...(isStaff ? adminManageItems.flatMap(i => i.children ? i.children : [i]) : [])
+                ].map((item) => {
                   if (item.id === 'post-new-trip') return null;
                   const isActive = activeTab === item.id;
                   return (
-                    <button key={item.id} onClick={() => { setActiveTab(item.id); setShowMobileManageMenu(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all relative shrink-0 ${isActive ? 'bg-emerald-50 text-emerald-600' : 'hover:bg-slate-50 text-slate-600'}`}>
+                    <button
+                      key={item.id}
+                      onClick={() => { setActiveTab(item.id); setShowMobileManageMenu(false); }}
+                      className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all relative shrink-0 ${isActive ? 'bg-emerald-50 text-emerald-600' : 'hover:bg-slate-50 text-slate-600'}`}
+                    >
                       <item.icon size={18} className={isActive ? 'text-emerald-600' : 'text-slate-400'} />
                       <span className="text-xs font-bold">{item.label}</span>
                       {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-600"></div>}
@@ -506,35 +503,100 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                     </button>
                   );
                 })}
+                
                 <div className="h-px bg-slate-100 my-1 shrink-0"></div>
+
                 {profile ? (
                     <>
-                        <button onClick={() => { onProfileClick(); setShowMobileManageMenu(false); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all hover:bg-slate-50 text-slate-600 shrink-0">
-                            <div className="relative"><User size={18} className="text-slate-400" /><div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full border border-white"></div></div>
-                            <span className="text-xs font-bold">Hồ sơ: {profile.full_name}</span>
+                        <button
+                            onClick={() => { onProfileClick(); setShowMobileManageMenu(false); }}
+                            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all hover:bg-slate-50 text-slate-600 shrink-0"
+                        >
+                            <div className="relative">
+                                {profile.avatar_url ? (
+                                  <img src={profile.avatar_url} alt="Avatar" className="w-[18px] h-[18px] rounded-full object-cover" />
+                                ) : (
+                                  <User size={18} className="text-slate-400" />
+                                )}
+                                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full border border-white"></div>
+                            </div>
+                            <span className="text-xs font-bold truncate">Hồ sơ: {profile.full_name}</span>
                         </button>
-                        <button onClick={() => { supabase.auth.signOut(); setShowMobileManageMenu(false); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all hover:bg-rose-50 text-rose-500 shrink-0">
-                            <LogOut size={18} /><span className="text-xs font-bold">Đăng xuất</span>
+                        <button
+                            onClick={() => { supabase.auth.signOut(); setShowMobileManageMenu(false); }}
+                            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all hover:bg-rose-50 text-rose-500 shrink-0"
+                        >
+                            <LogOut size={18} />
+                            <span className="text-xs font-bold">Đăng xuất</span>
                         </button>
                     </>
                 ) : (
-                    <button onClick={() => { onLoginClick(); setShowMobileManageMenu(false); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all bg-emerald-600 text-white shadow-lg shadow-emerald-200 shrink-0">
-                        <LogIn size={18} /><span className="text-xs font-bold">Đăng nhập ngay</span>
+                    <button
+                        onClick={() => { onLoginClick(); setShowMobileManageMenu(false); }}
+                        className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all bg-emerald-600 text-white shadow-lg shadow-emerald-200 shrink-0"
+                    >
+                        <LogIn size={18} />
+                        <span className="text-xs font-bold">Đăng nhập ngay</span>
                     </button>
                 )}
               </div>
             )}
+
             <div className="bg-white/95 backdrop-blur-2xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-[22px] px-2 py-1.5 flex items-center justify-around gap-1 w-full max-w-[340px] relative">
-              <MobileNavItem id="post" icon={PlusCircle} label="Đăng tin" isActive={false} onClick={handlePostButton} />
-              <MobileNavItem id="manage-trips" icon={Car} label="Chuyến xe" isActive={activeTab === 'manage-trips'} onClick={() => setActiveTab('manage-trips')} />
-              <MobileNavItem id="search" icon={Search} label="" isMain={true} isActive={activeTab === 'search'} onClick={() => setActiveTab('search')} />
-              <MobileNavItem id="manage-orders" icon={CheckCircle2} label="Yêu cầu" isActive={activeTab === 'manage-orders'} onClick={() => setActiveTab('manage-orders')} />
-              <MobileNavItem id="manage" icon={Grid} label="Menu" hasBadge={pendingOrderCount > 0 && isStaff} isActive={personalManageItems.some(i => i.id === activeTab || i.children?.some(c => c.id === activeTab))} onClick={() => setShowMobileManageMenu(!showMobileManageMenu)} />
+              <MobileNavItem 
+                  id="post" 
+                  icon={PlusCircle} 
+                  label="Đăng tin" 
+                  isActive={false} 
+                  onClick={handlePostButton} 
+              />
+              
+              <MobileNavItem 
+                id="manage-trips" 
+                icon={Car} 
+                label="Chuyến xe" 
+                isActive={activeTab === 'manage-trips'} 
+                onClick={() => setActiveTab('manage-trips')} 
+              />
+
+              <MobileNavItem 
+                id="search" 
+                icon={Search} 
+                label="" 
+                isMain={true}
+                isActive={activeTab === 'search'} 
+                onClick={() => setActiveTab('search')} 
+              />
+
+              <MobileNavItem 
+                id="manage-orders" 
+                icon={CheckCircle2} 
+                label="Yêu cầu" 
+                isActive={activeTab === 'manage-orders'} 
+                onClick={() => setActiveTab('manage-orders')} 
+              />
+
+              <MobileNavItem 
+                id="manage" 
+                icon={Grid} 
+                label="Menu" 
+                hasBadge={(pendingOrderCount > 0 && isStaff) || unreadCount > 0}
+                isActive={personalManageItems.some(i => i.id === activeTab || i.children?.some(c => c.id === activeTab))} 
+                onClick={() => setShowMobileManageMenu(!showMobileManageMenu)} 
+              />
             </div>
           </nav>
         </main>
       </div>
       <UserGuideModal isOpen={showUserGuide} onClose={() => setShowUserGuide(false)} profile={profile} />
+      <NotificationModal 
+        isOpen={showNotifications} 
+        onClose={() => setShowNotifications(false)} 
+        notifications={notifications}
+        onMarkRead={onMarkNotificationRead}
+        onMarkAllRead={onMarkAllNotificationsRead}
+        onClearAll={onClearAllNotifications}
+      />
     </div>
   );
 };
