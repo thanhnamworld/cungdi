@@ -402,7 +402,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
         </div>
         <button 
           onClick={onClose} 
-          className="absolute top-4 right-4 md:-top-4 md:-right-4 w-11 h-11 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-rose-500/30 hover:rotate-90 hover:bg-rose-600 transition-all duration-300 z-[210] border-2 border-white"
+          className="absolute -top-4 -right-4 w-11 h-11 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-rose-500/30 hover:rotate-90 hover:bg-rose-600 transition-all duration-300 z-[210] border-2 border-white"
         >
           <X size={20} strokeWidth={3} />
         </button>

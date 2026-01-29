@@ -615,7 +615,7 @@ const App: React.FC = () => {
       // Fallback for old link if any
       case 'dashboard': return profile ? <Dashboard bookings={dashboardData} trips={filteredTrips} profile={profile} onViewTripDetails={handleViewTripDetails} currentView="overview" onManageVehicles={handleManageVehicles} /> : <SearchTrips {...commonProps} />;
       case 'search': return <SearchTrips {...commonProps} />;
-      case 'manage-trips': return <TripManagement profile={profile} trips={filteredTrips} bookings={filteredStaffBookings} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
+      case 'manage-trips': return <TripManagement profile={profile} trips={filteredTrips} bookings={staffBookings} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
       case 'manage-orders': return <OrderManagement profile={profile} trips={filteredTrips} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
       case 'admin': return (profile?.role === 'admin' || profile?.role === 'manager') ? <AdminPanel showAlert={showAlert} /> : <SearchTrips {...commonProps} />;
       default: return <SearchTrips {...commonProps} />;

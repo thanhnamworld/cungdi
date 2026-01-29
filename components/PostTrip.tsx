@@ -356,7 +356,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
       const [h, min] = time.split(':').map(Number);
       departure.setHours(h, min, 0, 0);
       
-      if (departure < new Date()) {
+      if (departure < new Date() && !isStaff) {
         setError("Không thể đặt chuyến trong quá khứ. Vui lòng chọn ngày giờ trong tương lai.");
         return;
       }
@@ -613,7 +613,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
                                     <button type="button" onClick={() => setShowDatePicker(!showDatePicker)} className={`w-full flex items-center justify-between px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 shadow-sm transition-all h-[38px] ${postMode === 'PASSENGER' ? 'hover:border-orange-300' : 'hover:border-emerald-300'}`}>
                                     <span>{date}</span><Calendar size={14} className={postMode === 'PASSENGER' ? 'text-orange-500' : 'text-emerald-500'} />
                                     </button>
-                                    {showDatePicker && <div className="absolute top-full left-0 z-[60] mt-2"><CustomDatePicker selectedDate={date} onSelect={setDate} onClose={() => setShowDatePicker(false)} minDate={minDate} /></div>}
+                                    {showDatePicker && <div className="absolute top-full left-0 z-[60] mt-2"><CustomDatePicker selectedDate={date} onSelect={setDate} onClose={() => setShowDatePicker(false)} minDate={isStaff ? undefined : minDate} /></div>}
                                 </div>
                                 <div className="w-[28%] relative" ref={timePickerRef}>
                                     <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 uppercase tracking-wider">Giờ đi</label>
@@ -823,7 +823,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
         </div>
         <button 
           onClick={onClose} 
-          className="absolute top-4 right-4 md:-top-4 md:-right-4 w-11 h-11 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-rose-500/30 hover:rotate-90 hover:bg-rose-600 transition-all duration-300 z-[210] border-2 border-white"
+          className="absolute -top-4 -right-4 w-11 h-11 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-rose-500/30 hover:rotate-90 hover:bg-rose-600 transition-all duration-300 z-[210] border-2 border-white"
         >
           <X size={20} strokeWidth={3} />
         </button>
