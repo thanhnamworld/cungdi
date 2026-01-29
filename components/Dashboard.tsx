@@ -7,7 +7,7 @@ import {
 import { 
   TrendingUp, Users, DollarSign, Calendar, Filter, Search, 
   Car, CheckCircle2, Award, Zap, ChevronDown, BarChart3, PieChart as PieChartIcon, ArrowUpRight,
-  CalendarRange, ChevronLeft, ChevronRight, Clock, MapPin, Navigation, Info, Users as UsersIcon, Play, CalendarDays, ClipboardList, User
+  CalendarRange, ChevronLeft, ChevronRight, Clock, MapPin, Navigation, Info, Users as UsersIcon, Play, CalendarDays, ClipboardList, User, Ticket, Hash, Hourglass, Plus, ArrowUpDown
 } from 'lucide-react';
 import { Trip, Booking, Profile } from '../types';
 import { UnifiedDropdown, TripCard, statusFilterOptions } from './SearchTrips';
@@ -16,33 +16,266 @@ import { UnifiedDropdown, TripCard, statusFilterOptions } from './SearchTrips';
 const COLORS = ['#10b981', '#6366f1', '#f59e0b', '#ec4899', '#0ea5e9', '#8b5cf6'];
 
 // --- Helper Functions ---
-const formatCurrency = (val: number) => new Intl.NumberFormat('vi-VN').format(val) + 'đ';
+const formatCurrency = (val: number) => {
+    const roundedVal = Math.round(val / 1000) * 1000;
+    return new Intl.NumberFormat('vi-VN').format(roundedVal) + 'đ';
+};
+
+// --- Local Types ---
+type SortConfig = { key: string; direction: 'asc' | 'desc' | null };
 
 // --- Sub-components ---
 
-// COMPACT STAT CARD: Horizontal layout to save vertical space
-const StatCard = ({ title, value, subValue, icon: Icon, color, trend }: any) => (
-  <div className="bg-white p-3 md:p-4 rounded-[20px] border border-slate-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all duration-300 group h-full">
-    <div className="flex flex-col justify-center">
-      <h3 className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-0.5">{title}</h3>
-      <div className="flex items-baseline gap-2">
-        <p className="text-lg md:text-xl font-black text-slate-800 tracking-tight">{value}</p>
-        {trend && (
-          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 ${trend > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-            {trend > 0 ? '+' : ''}{trend}%
+// FLEXIBLE STAT CARD: Supports 'large' (default) and 'compact' variants
+const StatCard = ({ title, value, icon: Icon, color, trend, variant = 'large' }: any) => {
+  const isCompact = variant === 'compact';
+  
+  return (
+    <div className={`bg-white border border-slate-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all duration-300 group h-full ${isCompact ? 'p-3 rounded-[16px]' : 'p-4 rounded-[20px]'}`}>
+      <div className="flex flex-col justify-center">
+        <h3 className={`text-slate-400 text-[10px] font-bold tracking-wider mb-0.5 ${isCompact ? 'capitalize' : 'uppercase'}`}>{title}</h3>
+        
+        {/* Main value - font size reduced */}
+        <p className={`font-black text-slate-800 tracking-tight ${isCompact ? 'text-base' : 'text-lg'}`}>{value}</p>
+        
+        {/* Trend indicator moved below, with a small top margin */}
+        {trend != null && (
+          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 mt-1 self-start ${trend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+            {trend >= 0 ? '+' : ''}{trend.toFixed(1)}%
             <TrendingUp size={8} className={trend < 0 ? 'rotate-180' : ''} />
           </span>
         )}
       </div>
-      {subValue && <p className="text-[9px] text-slate-500 font-medium mt-0.5">{subValue}</p>}
+      <div className={`rounded-xl ${color.bg} ${color.text} group-hover:scale-110 transition-transform duration-300 shadow-sm ${isCompact ? 'p-2' : 'p-2.5'}`}>
+        <Icon size={isCompact ? 16 : 18} />
+      </div>
     </div>
-    <div className={`p-2.5 rounded-xl ${color.bg} ${color.text} group-hover:scale-110 transition-transform duration-300 shadow-sm`}>
-      <Icon size={18} />
-    </div>
-  </div>
+  );
+};
+
+
+// Sortable Header Component for Tables
+const SortHeader = ({ label, icon: Icon, sortKey, sortConfig, onSort, width, textAlign = 'text-left' }: { label: string, icon: React.ElementType, sortKey: string, sortConfig: SortConfig, onSort: (key: string) => void, width?: string, textAlign?: string }) => (
+    <th style={{ width }} className={`px-4 py-3 text-[11px] font-bold text-slate-500 cursor-pointer hover:bg-slate-50/50 transition-colors ${textAlign}`} onClick={() => onSort(sortKey)}>
+      <div className={`flex items-center gap-1.5 ${textAlign === 'text-center' ? 'justify-center' : textAlign === 'text-right' ? 'justify-end' : ''}`}>
+        <Icon size={14} className="text-slate-400" />
+        {label}
+        <ArrowUpDown size={12} className={`${sortConfig.key === sortKey ? 'text-indigo-600' : 'opacity-20'}`} />
+      </div>
+    </th>
 );
 
-// --- NEW: Driver Schedule Component (Gantt Style - Ultra Compact) ---
+// --- NEW: Vehicle Dashboard Component ---
+const VehicleDashboard = ({ trips, bookings }: { trips: Trip[], bookings: Booking[] }) => {
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'total_revenue', direction: 'desc' });
+
+  const handleSort = (key: string) => {
+    let direction: SortConfig['direction'] = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
+    else if (sortConfig.key === key && sortConfig.direction === 'desc') direction = null;
+    setSortConfig({ key, direction });
+  };
+  
+  const sortedVehicleStats = useMemo(() => {
+    const statsMap = new Map<string, {
+      license_plate: string;
+      driver_name: string;
+      created_at: string;
+      total_trips: number;
+      total_hours: number;
+      total_revenue: number;
+    }>();
+
+    trips.forEach(trip => {
+      const parts = (trip.vehicle_info || '').split('(');
+      if (parts.length < 2) return; 
+
+      const license_plate = parts[1].replace(')', '').trim();
+      const driver_name = trip.driver_name || 'N/A';
+      
+      if (!statsMap.has(license_plate)) {
+        statsMap.set(license_plate, {
+          license_plate, driver_name,
+          created_at: trip.created_at || new Date().toISOString(),
+          total_trips: 0, total_hours: 0, total_revenue: 0,
+        });
+      }
+
+      const vehicle = statsMap.get(license_plate)!;
+      vehicle.total_trips += 1;
+      
+      const dep = new Date(trip.departure_time);
+      const arr = trip.arrival_time ? new Date(trip.arrival_time) : new Date(dep.getTime() + 3 * 60 * 60 * 1000);
+      const durationHours = (arr.getTime() - dep.getTime()) / (1000 * 60 * 60);
+      vehicle.total_hours += durationHours;
+
+      if (trip.created_at && new Date(trip.created_at) < new Date(vehicle.created_at)) {
+        vehicle.created_at = trip.created_at;
+      }
+    });
+
+    bookings.forEach(booking => {
+      if (booking.status === 'CONFIRMED' || booking.status === 'ON_BOARD' || booking.status === 'PICKED_UP') {
+        const trip = (booking as any).trips;
+        if (trip && trip.vehicle_info) {
+          const parts = trip.vehicle_info.split('(');
+          if (parts.length < 2) return;
+          const license_plate = parts[1].replace(')', '').trim();
+          if (statsMap.has(license_plate)) {
+            statsMap.get(license_plate)!.total_revenue += booking.total_price;
+          }
+        }
+      }
+    });
+
+    const statsArray = Array.from(statsMap.values());
+    
+    if (sortConfig.key && sortConfig.direction) {
+        statsArray.sort((a: any, b: any) => {
+            let valA = a[sortConfig.key];
+            let valB = b[sortConfig.key];
+            
+            if (sortConfig.key === 'created_at') {
+                valA = valA ? new Date(valA).getTime() : 0;
+                valB = valB ? new Date(valB).getTime() : 0;
+            }
+            if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
+    return statsArray;
+  }, [trips, bookings, sortConfig]);
+
+  const summaryStats = useMemo(() => {
+    const totalVehicles = sortedVehicleStats.length;
+    const totalTrips = sortedVehicleStats.reduce((acc, v) => acc + v.total_trips, 0);
+    const totalHours = sortedVehicleStats.reduce((acc, v) => acc + v.total_hours, 0);
+    const totalRevenue = sortedVehicleStats.reduce((acc, v) => acc + v.total_revenue, 0);
+    return {
+        totalVehicles,
+        totalTrips,
+        totalHours,
+        totalRevenue,
+        avgTrips: totalVehicles > 0 ? (totalTrips / totalVehicles).toFixed(1) : '0',
+        avgRevenue: totalVehicles > 0 ? totalRevenue / totalVehicles : 0,
+    };
+  }, [sortedVehicleStats]);
+
+  return (
+    <div className="space-y-4">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+            <StatCard 
+                title="Xe"
+                value={summaryStats.totalVehicles} 
+                variant="compact"
+                icon={Car} 
+                color={{ bg: 'bg-sky-50', text: 'text-sky-600' }} 
+                trend={2.1}
+            />
+            <StatCard 
+                title="Chuyến"
+                value={summaryStats.totalTrips} 
+                variant="compact"
+                icon={Navigation} 
+                color={{ bg: 'bg-indigo-50', text: 'text-indigo-600' }} 
+                trend={-5.0}
+            />
+            <StatCard 
+                title="Giờ"
+                value={`${summaryStats.totalHours.toFixed(1)}h`} 
+                variant="compact"
+                icon={Clock} 
+                color={{ bg: 'bg-amber-50', text: 'text-amber-600' }} 
+                trend={10.8}
+            />
+            <StatCard 
+                title="Doanh thu"
+                value={formatCurrency(summaryStats.totalRevenue)} 
+                variant="compact"
+                icon={DollarSign} 
+                color={{ bg: 'bg-emerald-50', text: 'text-emerald-600' }} 
+                trend={15.2}
+            />
+             <StatCard 
+                title="Chuyến/xe"
+                value={summaryStats.avgTrips}
+                variant="compact"
+                icon={BarChart3}
+                color={{bg: 'bg-rose-50', text: 'text-rose-600'}}
+                trend={-3.4}
+            />
+            <StatCard 
+                title="Doanh thu/xe"
+                value={formatCurrency(summaryStats.avgRevenue)}
+                variant="compact"
+                icon={PieChartIcon}
+                color={{bg: 'bg-purple-50', text: 'text-purple-600'}}
+                trend={18.1}
+            />
+        </div>
+
+        <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm h-full flex flex-col overflow-hidden">
+            {sortedVehicleStats.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-slate-300 min-h-[300px]">
+                    <Car size={64} className="mb-4 opacity-10" />
+                    <p className="text-sm font-bold uppercase tracking-wider">Không có dữ liệu xe để hiển thị</p>
+                </div>
+            ) : (
+                <div className="flex-1 overflow-auto custom-scrollbar">
+                    <table className="w-full text-left table-auto">
+                        <thead className="sticky top-0 bg-slate-50/80 backdrop-blur-sm z-10">
+                        <tr className="border-b border-slate-200">
+                            <SortHeader label="Biển kiểm soát" icon={Hash} sortKey="license_plate" sortConfig={sortConfig} onSort={handleSort} />
+                            <SortHeader label="Tài xế" icon={User} sortKey="driver_name" sortConfig={sortConfig} onSort={handleSort} />
+                            <SortHeader label="Ngày thêm" icon={CalendarDays} sortKey="created_at" sortConfig={sortConfig} onSort={handleSort} textAlign="text-center" />
+                            <SortHeader label="Tổng chuyến" icon={Car} sortKey="total_trips" sortConfig={sortConfig} onSort={handleSort} textAlign="text-center" />
+                            <SortHeader label="Tổng giờ" icon={Clock} sortKey="total_hours" sortConfig={sortConfig} onSort={handleSort} textAlign="text-center" />
+                            <SortHeader label="Doanh thu" icon={DollarSign} sortKey="total_revenue" sortConfig={sortConfig} onSort={handleSort} textAlign="text-right" />
+                        </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                        {sortedVehicleStats.map(vehicle => (
+                            <tr key={vehicle.license_plate} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-3">
+                                <div className="inline-flex items-center bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
+                                    <span className="text-[10px] font-black uppercase tracking-wider">{vehicle.license_plate}</span>
+                                </div>
+                            </td>
+                            <td className="px-4 py-3">
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold bg-blue-50 text-blue-600 border-blue-100">
+                                    <User size={12} />
+                                    {vehicle.driver_name}
+                                </div>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold bg-slate-100 text-slate-500 border-slate-200">
+                                <CalendarDays size={12}/>
+                                {new Date(vehicle.created_at).toLocaleDateString('vi-VN')}
+                                </div>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                                <span className="text-xs font-bold text-indigo-600">{vehicle.total_trips}</span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                                <span className="text-xs font-bold text-amber-600">{vehicle.total_hours.toFixed(1)}h</span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                                <span className="text-xs font-bold text-emerald-600">{formatCurrency(vehicle.total_revenue)}</span>
+                            </td>
+                            </tr>
+                        ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    </div>
+  );
+};
+
+// --- Driver Schedule Component ---
 const DriverSchedule = ({ trips, bookings, profile, onViewTripDetails }: { trips: Trip[], bookings: Booking[], profile?: Profile | null, onViewTripDetails: (trip: Trip) => void }) => {
   // Tooltip State
   const [tooltipData, setTooltipData] = useState<{ trip: Trip, x: number, y: number } | null>(null);
@@ -285,15 +518,18 @@ interface DashboardProps {
   trips: Trip[];
   profile?: Profile | null;
   onViewTripDetails?: (trip: Trip) => void;
-  currentView?: 'overview' | 'schedule'; 
+  onManageVehicles?: () => void;
+  currentView?: 'overview' | 'schedule' | 'vehicles'; 
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ bookings, trips, profile, onViewTripDetails, currentView = 'overview' }) => {
+const Dashboard: React.FC<DashboardProps> = ({ bookings, trips, profile, onViewTripDetails, onManageVehicles, currentView = 'overview' }) => {
   const [timeRange, setTimeRange] = useState<'7D' | '30D' | 'THIS_MONTH' | 'ALL'>('THIS_MONTH');
   const [searchTerm, setSearchTerm] = useState('');
   const [driverFilter, setDriverFilter] = useState<string[]>(['ALL']); // UPDATED: Changed from ['956 Xanh'] to ['ALL']
   const [statusFilter, setStatusFilter] = useState<string[]>(['ALL']);
   const [vehicleFilter, setVehicleFilter] = useState<string[]>(['ALL']);
+
+  const isUser = profile?.role === 'user'; // Check if regular user
 
   const uniqueDrivers = useMemo(() => {
     const drivers = new Set<string>();
@@ -374,7 +610,9 @@ const Dashboard: React.FC<DashboardProps> = ({ bookings, trips, profile, onViewT
       const bDate = new Date(b.created_at);
       const effectiveEndDate = (timeRange === '7D' || timeRange === '30D') ? now : endDate;
       const isTimeValid = bDate >= startDate && bDate <= effectiveEndDate;
-      const isBookingStatusValid = b.status === 'CONFIRMED' || b.status === 'COMPLETED' || b.status === 'PICKED_UP' || b.status === 'ON_BOARD';
+      // FIX: 'COMPLETED' is not a valid status for a Booking according to types.ts.
+// This condition filters bookings to calculate dashboard stats, and should only include statuses that represent a valid transaction.
+      const isBookingStatusValid = b.status === 'CONFIRMED' || b.status === 'PICKED_UP' || b.status === 'ON_BOARD';
       return isTimeValid && isBookingStatusValid && filterFn(b);
     });
 
@@ -392,8 +630,10 @@ const Dashboard: React.FC<DashboardProps> = ({ bookings, trips, profile, onViewT
     const totalBookings = filteredData.bookings.length;
     const totalSeats = filteredData.bookings.reduce((sum, b) => sum + b.seats_booked, 0);
     const activeDrivers = new Set(filteredData.bookings.map(b => (b as any).trips?.driver_id)).size;
-    return { totalRevenue, totalBookings, totalSeats, activeDrivers };
-  }, [filteredData.bookings]);
+    const totalTrips = filteredData.trips.length;
+    const revenuePerTrip = totalTrips > 0 ? totalRevenue / totalTrips : 0;
+    return { totalRevenue, totalBookings, totalSeats, activeDrivers, totalTrips, revenuePerTrip };
+  }, [filteredData.bookings, filteredData.trips]);
 
   const revenueByDateData = useMemo(() => {
     const map = new Map<string, number>();
@@ -473,17 +713,29 @@ const Dashboard: React.FC<DashboardProps> = ({ bookings, trips, profile, onViewT
                   />
                </div>
                
-                <div className="flex-1 md:w-48 md:flex-none shrink-0">
-                    <UnifiedDropdown 
-                      label="Thời gian" icon={CalendarDays} value={timeRange} width="w-full" showCheckbox={false}
-                      options={[
-                        { label: '7 Ngày qua', value: '7D' },
-                        { label: 'Tháng này', value: 'THIS_MONTH' },
-                        { label: '30 Ngày qua', value: '30D' },
-                        { label: 'Tất cả', value: 'ALL' }
-                      ]}
-                      onChange={(val: string) => setTimeRange(val as any)}
-                    />
+                <div className="flex items-center gap-3">
+                    <div className="w-40 shrink-0">
+                        <UnifiedDropdown 
+                        label="Thời gian" icon={CalendarDays} value={timeRange} width="w-full" showCheckbox={false}
+                        options={[
+                            { label: '7 Ngày qua', value: '7D' },
+                            { label: 'Tháng này', value: 'THIS_MONTH' },
+                            { label: '30 Ngày qua', value: '30D' },
+                            { label: 'Tất cả', value: 'ALL' }
+                        ]}
+                        onChange={(val: string) => setTimeRange(val as any)}
+                        />
+                    </div>
+                    {currentView === 'vehicles' && onManageVehicles && (
+                        <button
+                            type="button"
+                            onClick={onManageVehicles}
+                            className="h-[42px] px-4 rounded-xl text-xs font-bold transition-all items-center justify-center gap-2 shadow-sm hover:shadow-md border border-transparent whitespace-nowrap bg-emerald-600 text-white shadow-emerald-200 hover:bg-emerald-700 flex shrink-0"
+                        >
+                            <Plus size={14} /> 
+                            <span className="hidden sm:inline">Thêm xe mới</span>
+                        </button>
+                    )}
                 </div>
             </div>
           </div>
@@ -527,36 +779,54 @@ const Dashboard: React.FC<DashboardProps> = ({ bookings, trips, profile, onViewT
       <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-2">
         {currentView === 'overview' ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
               <StatCard 
-                  title="TỔNG DOANH THU" 
+                  title={isUser ? "Tổng chi tiêu" : "Tổng doanh thu"}
                   value={formatCurrency(stats.totalRevenue)} 
-                  subValue="Thực nhận (đã xác nhận)"
+                  variant="compact"
                   icon={DollarSign} 
                   color={{ bg: 'bg-emerald-50', text: 'text-emerald-600' }} 
                   trend={12.5}
               />
               <StatCard 
-                  title="ĐƠN HÀNG" 
+                  title={isUser ? "Chuyến đã đi" : "Đơn hàng"}
                   value={stats.totalBookings} 
-                  subValue="Số lượng vé bán ra"
+                  variant="compact"
                   icon={CheckCircle2} 
                   color={{ bg: 'bg-indigo-50', text: 'text-indigo-600' }} 
                   trend={8.2}
               />
               <StatCard 
-                  title="GHẾ ĐÃ BÁN" 
+                  title={isUser ? "Vé đã mua" : "Ghế đã bán"}
                   value={stats.totalSeats} 
-                  subValue={`~${(stats.totalBookings > 0 ? stats.totalSeats/stats.totalBookings : 0).toFixed(1)} ghế/đơn`}
-                  icon={Users} 
+                  variant="compact"
+                  icon={Ticket} 
                   color={{ bg: 'bg-amber-50', text: 'text-amber-600' }} 
+                  trend={-1.5}
               />
               <StatCard 
-                  title="TÀI XẾ" 
-                  value={stats.activeDrivers} 
-                  subValue="Có doanh thu trong kỳ"
-                  icon={Car} 
-                  color={{ bg: 'bg-sky-50', text: 'text-sky-600' }} 
+                  title="Tổng chuyến"
+                  value={stats.totalTrips}
+                  variant="compact"
+                  icon={Navigation}
+                  color={{ bg: 'bg-sky-50', text: 'text-sky-600' }}
+                  trend={-2.3}
+              />
+              <StatCard 
+                  title={isUser ? "Tài xế đã đi" : "Tài xế hoạt động"}
+                  value={stats.activeDrivers}
+                  variant="compact"
+                  icon={isUser ? User : Car}
+                  color={{ bg: 'bg-purple-50', text: 'text-purple-600' }}
+                  trend={2.0}
+              />
+              <StatCard 
+                  title={isUser ? "Chi tiêu / chuyến" : "Doanh thu / chuyến"}
+                  value={formatCurrency(stats.revenuePerTrip)}
+                  variant="compact"
+                  icon={BarChart3}
+                  color={{ bg: 'bg-rose-50', text: 'text-rose-600' }}
+                  trend={7.1}
               />
             </div>
 
@@ -564,7 +834,7 @@ const Dashboard: React.FC<DashboardProps> = ({ bookings, trips, profile, onViewT
               <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2">
                       <Calendar size={14} className="text-indigo-500" />
-                      Biểu đồ doanh thu
+                      {isUser ? "Chi tiêu theo thời gian" : "Biểu đồ doanh thu"}
                   </h3>
               </div>
               <div className="h-[200px] w-full">
@@ -594,7 +864,7 @@ const Dashboard: React.FC<DashboardProps> = ({ bookings, trips, profile, onViewT
                               contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                               itemStyle={{ color: '#1e293b', fontWeight: 'bold', fontSize: '11px' }}
                               labelStyle={{ color: '#64748b', fontSize: '10px', marginBottom: '2px' }}
-                              formatter={(value: number) => [formatCurrency(value), 'Doanh thu']}
+                              formatter={(value: number) => [formatCurrency(value), isUser ? 'Chi tiêu' : 'Doanh thu']}
                           />
                           <Area 
                               type="monotone" 
@@ -616,7 +886,7 @@ const Dashboard: React.FC<DashboardProps> = ({ bookings, trips, profile, onViewT
                   <div className="flex items-center justify-between mb-4">
                       <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2">
                           <Award size={14} className="text-amber-500" />
-                          Top Tài xế
+                          {isUser ? "Tài xế đi nhiều nhất" : "Top Tài xế"}
                       </h3>
                       <button className="text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded-lg transition-colors">Xem tất cả</button>
                   </div>
@@ -658,7 +928,7 @@ const Dashboard: React.FC<DashboardProps> = ({ bookings, trips, profile, onViewT
                               </div>
                           </div>
                       )) : (
-                          <div className="h-32 flex items-center justify-center text-slate-400 text-[10px] italic">Chưa có dữ liệu tài xế</div>
+                          <div className="h-32 flex items-center justify-center text-slate-400 text-[10px] italic">Chưa có dữ liệu</div>
                       )}
                   </div>
               </div>
@@ -667,7 +937,7 @@ const Dashboard: React.FC<DashboardProps> = ({ bookings, trips, profile, onViewT
                   <div className="flex items-center justify-between mb-4">
                       <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2">
                           <PieChartIcon size={14} className="text-emerald-500" />
-                          Loại xe
+                          {isUser ? "Loại xe đã đi" : "Loại xe"}
                       </h3>
                   </div>
                   
@@ -717,8 +987,10 @@ const Dashboard: React.FC<DashboardProps> = ({ bookings, trips, profile, onViewT
               </div>
             </div>
           </div>
-        ) : (
+        ) : currentView === 'schedule' ? (
           <DriverSchedule trips={filteredData.trips} bookings={bookings} profile={profile} onViewTripDetails={onViewTripDetails || (() => {})} />
+        ) : (
+          <VehicleDashboard trips={filteredData.trips} bookings={filteredData.bookings} />
         )}
       </div>
     </div>

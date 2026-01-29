@@ -167,9 +167,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
   const personalManageItems: NavItem[] = [
     { id: 'manage-trips', label: 'Chuyến xe', icon: Car, color: 'text-blue-500' },
     { id: 'manage-orders', label: 'Yêu cầu', icon: CheckCircle2, badge: (isStaff && pendingOrderCount > 0) ? pendingOrderCount : undefined, color: 'text-orange-500' },
-  ];
-
-  const adminManageItems: NavItem[] = [
     { 
         id: 'dashboard', 
         label: 'Thống kê', 
@@ -177,9 +174,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
         color: 'text-purple-500',
         children: [
             { id: 'dashboard-overview', label: 'Tổng quan', icon: BarChart3, color: 'text-purple-500' },
-            { id: 'dashboard-schedule', label: 'Lịch trình xe', icon: CalendarRange, color: 'text-teal-500' }
+            { id: 'dashboard-schedule', label: 'Lịch trình', icon: CalendarRange, color: 'text-teal-500' },
+            { id: 'dashboard-vehicles', label: 'Quản lý xe', icon: Car, color: 'text-sky-500' }
         ]
     },
+  ];
+
+  const adminManageItems: NavItem[] = [
     { id: 'admin', label: 'Thành viên', icon: Users, color: 'text-rose-500' },
   ];
 
@@ -535,11 +536,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                     ...(isStaff ? adminManageItems.flatMap(i => i.children ? i.children : [i]) : [])
                 ].map((item) => {
                   if (item.id === 'post-new-trip') return null; // Skip post button here as it's main action
-                  const isActive = activeTab === item.id;
+                  const isActive = activeTab === item.id || (item.children && item.children.some(c => c.id === activeTab));
                   return (
                     <button
                       key={item.id}
-                      onClick={() => { setActiveTab(item.id); setShowMobileManageMenu(false); }}
+                      onClick={() => { setActiveTab(item.children ? item.children[0].id : item.id); setShowMobileManageMenu(false); }}
                       className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all relative ${isActive ? 'bg-emerald-50 text-emerald-600' : 'hover:bg-slate-50 text-slate-600'}`}
                     >
                       <item.icon size={18} className={isActive ? 'text-emerald-600' : 'text-slate-400'} />
@@ -599,24 +600,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                 onClick={() => setActiveTab('manage-orders')} 
               />
 
-              {isStaff ? (
-                <MobileNavItem 
-                  id="manage" 
-                  icon={Grid} 
-                  label="Thêm" 
-                  hasBadge={pendingOrderCount > 0}
-                  isActive={adminManageItems.some(i => i.id === activeTab || i.children?.some(c => c.id === activeTab))} 
-                  onClick={() => setShowMobileManageMenu(!showMobileManageMenu)} 
-                />
-              ) : (
-                  <MobileNavItem 
-                  id="profile" 
-                  icon={User} 
-                  label="Hồ sơ" 
-                  isActive={activeTab === 'profile'} 
-                  onClick={onProfileClick} 
-                  />
-              )}
+              <MobileNavItem 
+                id="manage" 
+                icon={Grid} 
+                label="Menu" 
+                hasBadge={pendingOrderCount > 0 && isStaff}
+                isActive={personalManageItems.some(i => i.id === activeTab || i.children?.some(c => c.id === activeTab))} 
+                onClick={() => setShowMobileManageMenu(!showMobileManageMenu)} 
+              />
             </div>
           </nav>
         </main>

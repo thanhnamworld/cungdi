@@ -598,11 +598,19 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     const commonProps = { trips: filteredTrips, onBook: handleOpenBookingModal, userBookings: filteredBookings, profile, onViewTripDetails: handleViewTripDetails, onPostClick: handlePostClick };
+    
+    // Choose the correct data source for Dashboard based on role
+    // User sees their OWN bookings (`filteredBookings`).
+    // Driver/Manager sees their TRIPS' bookings (`filteredStaffBookings`).
+    const dashboardData = profile?.role === 'user' ? filteredBookings : filteredStaffBookings;
+    const handleManageVehicles = () => setIsVehicleModalOpen(true);
+
     switch (activeTab) {
-      case 'dashboard-overview': return profile && ['admin', 'manager', 'driver'].includes(profile.role) ? <Dashboard bookings={filteredStaffBookings} trips={filteredTrips} profile={profile} onViewTripDetails={handleViewTripDetails} currentView="overview" /> : <SearchTrips {...commonProps} />;
-      case 'dashboard-schedule': return profile && ['admin', 'manager', 'driver'].includes(profile.role) ? <Dashboard bookings={filteredStaffBookings} trips={filteredTrips} profile={profile} onViewTripDetails={handleViewTripDetails} currentView="schedule" /> : <SearchTrips {...commonProps} />;
+      case 'dashboard-overview': return profile ? <Dashboard bookings={dashboardData} trips={filteredTrips} profile={profile} onViewTripDetails={handleViewTripDetails} currentView="overview" onManageVehicles={handleManageVehicles} /> : <SearchTrips {...commonProps} />;
+      case 'dashboard-schedule': return profile ? <Dashboard bookings={dashboardData} trips={filteredTrips} profile={profile} onViewTripDetails={handleViewTripDetails} currentView="schedule" onManageVehicles={handleManageVehicles} /> : <SearchTrips {...commonProps} />;
+      case 'dashboard-vehicles': return profile ? <Dashboard bookings={dashboardData} trips={filteredTrips} profile={profile} onViewTripDetails={handleViewTripDetails} currentView="vehicles" onManageVehicles={handleManageVehicles} /> : <SearchTrips {...commonProps} />;
       // Fallback for old link if any
-      case 'dashboard': return profile && ['admin', 'manager', 'driver'].includes(profile.role) ? <Dashboard bookings={filteredStaffBookings} trips={filteredTrips} profile={profile} onViewTripDetails={handleViewTripDetails} currentView="overview" /> : <SearchTrips {...commonProps} />;
+      case 'dashboard': return profile ? <Dashboard bookings={dashboardData} trips={filteredTrips} profile={profile} onViewTripDetails={handleViewTripDetails} currentView="overview" onManageVehicles={handleManageVehicles} /> : <SearchTrips {...commonProps} />;
       case 'search': return <SearchTrips {...commonProps} />;
       case 'manage-trips': return <TripManagement profile={profile} trips={filteredTrips} bookings={filteredStaffBookings} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
       case 'manage-orders': return <OrderManagement profile={profile} trips={filteredTrips} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
