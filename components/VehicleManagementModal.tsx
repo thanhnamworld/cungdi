@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Car, Plus, Loader2, Edit3, Trash2, Save, Sparkles, UploadCloud, Crop, AlertTriangle, Database, Copy, CheckCircle2 } from 'lucide-react';
 import { Profile } from '../types';
@@ -19,6 +20,7 @@ interface VehicleManagementModalProps {
   onClose: () => void;
   profile: Profile | null;
   onVehiclesUpdated: () => void;
+  showAlert: (config: any) => void;
 }
 
 const vehicleOptions = [
@@ -44,7 +46,7 @@ create policy "Public Delete" on storage.objects for delete using ( bucket_id = 
 // Style chuẩn cho ô nhập liệu
 const INPUT_STYLE = "w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 rounded-xl outline-none transition-all font-bold text-sm text-slate-900 placeholder:text-slate-400";
 
-const VehicleManagementModal: React.FC<VehicleManagementModalProps> = ({ isOpen, onClose, profile, onVehiclesUpdated }) => {
+const VehicleManagementModal: React.FC<VehicleManagementModalProps> = ({ isOpen, onClose, profile, onVehiclesUpdated, showAlert }) => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -262,18 +264,26 @@ const VehicleManagementModal: React.FC<VehicleManagementModalProps> = ({ isOpen,
   };
 
   const handleDelete = async (vehicleId: string) => {
-    if (!window.confirm("Bạn có chắc muốn xoá xe này?")) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('vehicles').delete().eq('id', vehicleId);
-      if (error) throw error;
-      fetchVehicles();
-      onVehiclesUpdated();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    showAlert({
+        title: "Xoá xe",
+        message: "Bạn có chắc muốn xoá xe này?",
+        variant: "danger",
+        confirmText: "Xoá",
+        cancelText: "Hủy",
+        onConfirm: async () => {
+            setLoading(true);
+            try {
+                const { error } = await supabase.from('vehicles').delete().eq('id', vehicleId);
+                if (error) throw error;
+                fetchVehicles();
+                onVehiclesUpdated();
+            } catch (err: any) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+    });
   };
   
   if (!isOpen) return null;

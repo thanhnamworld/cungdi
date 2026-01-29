@@ -184,28 +184,36 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
     { id: 'admin', label: 'Thành viên', icon: Users, color: 'text-rose-500' },
   ];
 
-  const activeLabel = 'Cùng đi'; 
-  const ActiveIcon = Car;
-
   const MobileNavItem = ({ id, icon: Icon, label, onClick, isActive, isMain = false, hasBadge = false }: any) => (
     <button 
       type="button" 
       onClick={onClick} 
-      className={`flex flex-col items-center justify-center gap-1 transition-all duration-300 relative ${isMain ? '-mt-8' : ''} ${isActive ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}
+      className={`flex flex-col items-center justify-center gap-0.5 transition-all duration-300 relative ${isMain ? '-mt-8' : ''} ${isActive ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}
     >
       {isMain ? (
-        <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg shadow-emerald-200 border-4 border-[#F8FAFC] transition-transform active:scale-95 bg-emerald-600 text-white`}>
-          <Icon size={28} />
+        <div className="relative group">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center border-[3.5px] border-[#F8FAFC] transition-all duration-300 active:scale-95 text-white relative overflow-hidden ${
+                isActive 
+                ? 'bg-gradient-to-br from-emerald-400 via-emerald-500 to-emerald-700 shadow-[0_6px_15px_rgba(16,185,129,0.4)]' 
+                : 'bg-gradient-to-br from-slate-400 via-slate-500 to-slate-600 shadow-[0_6px_15px_rgba(100,116,139,0.3)]'
+            }`}>
+                <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/30 to-transparent pointer-events-none"></div>
+                <div className={`absolute bottom-0 right-0 w-2/3 h-2/3 bg-gradient-to-tl to-transparent pointer-events-none rounded-full blur-sm ${
+                    isActive ? 'from-emerald-900/10' : 'from-slate-900/10'
+                }`}></div>
+                
+                <Icon size={20} strokeWidth={3} className="drop-shadow-md relative z-10" />
+            </div>
         </div>
       ) : (
         <>
-          <div className={`p-1.5 rounded-xl transition-colors relative ${isActive ? 'bg-emerald-50' : 'bg-transparent'}`}>
-            <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+          <div className={`p-1 rounded-xl transition-colors relative ${isActive ? 'bg-emerald-50' : 'bg-transparent'}`}>
+            <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
             {hasBadge && (
-              <div className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full border border-white"></div>
+              <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-rose-500 rounded-full border border-white"></div>
             )}
           </div>
-          <span className={`text-[9px] font-bold ${isActive ? 'text-emerald-700' : 'text-slate-400'}`}>{label}</span>
+          <span className={`text-[8px] font-bold ${isActive ? 'text-emerald-700' : 'text-slate-400'}`}>{label}</span>
         </>
       )}
     </button>
@@ -377,31 +385,29 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
         {/* Main Content */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
           <header className="h-20 bg-gradient-to-r from-emerald-50/80 via-white/90 to-indigo-50/80 backdrop-blur-md border-b border-emerald-100/50 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-20">
-            {/* Left: Mobile Toggle & Title */}
+            {/* Left: Logo & Title (Unified with Desktop) */}
             <div className="flex items-center gap-3 z-20">
-              <button
+              <button 
                 type="button"
                 onClick={() => { setActiveTab('search'); scrollToTop(); }}
-                aria-label="Về trang chủ"
-                className="xl:hidden bg-emerald-600 p-2 rounded-xl shadow-lg shadow-emerald-100"
+                className="flex items-center gap-2.5 transition-opacity hover:opacity-80 active:scale-95"
               >
-                <Car className="text-white w-4 h-4" />
+                <div className="bg-emerald-600 p-2 rounded-xl shadow-lg shadow-emerald-100 shrink-0">
+                  <Car className="text-white w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <span className="text-base sm:text-lg font-bold tracking-tight text-slate-900">
+                  Cùng đi<span className="text-emerald-600">.</span>
+                </span>
               </button>
-              <div className="flex items-center gap-2.5">
-                <ActiveIcon size={20} className="text-emerald-600 shrink-0" />
-                <h2 className="hidden sm:block text-lg sm:text-xl font-bold text-slate-900 tracking-tight truncate max-w-[180px]">
-                  {activeLabel}
-                </h2>
-              </div>
             </div>
 
-            {/* Center: Absolute Road Animation */}
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md hidden md:block z-10 pointer-events-none">
+            {/* Center: Absolute Road Animation - RESTORED & OPTIMIZED FOR MOBILE */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[140px] md:max-w-md z-10 pointer-events-none opacity-80 md:opacity-100">
                 <RoadAnimation />
             </div>
 
             {/* Right: Actions */}
-            <div className="flex items-center gap-2 z-20">
+            <div className="flex items-center gap-0.5 sm:gap-2 z-20">
               <button
                 type="button"
                 onClick={onOpenSettings}
@@ -463,26 +469,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                   </div>
                 )}
               </div>
-
-              <button
-                  type="button"
-                  onClick={profile ? onProfileClick : onLoginClick}
-                  className="xl:hidden p-1 rounded-xl hover:bg-white transition-all ml-1"
-              >
-                  {profile ? (
-                      <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-emerald-200 border-2 border-white">
-                          {profile.avatar_url ? (
-                              <img src={profile.avatar_url} alt="Profile" className="w-full h-full rounded-xl object-cover" />
-                          ) : (
-                              profile.full_name?.charAt(0).toUpperCase() || 'U'
-                          )}
-                      </div>
-                  ) : (
-                      <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 shadow-sm">
-                          <User size={20} />
-                      </div>
-                  )}
-              </button>
             </div>
           </header>
 
@@ -566,13 +552,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
               </div>
             )}
 
-            <div className="bg-white/95 backdrop-blur-2xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-[28px] px-3 py-2 flex items-center justify-around gap-1 w-full max-w-[420px] relative">
+            <div className="bg-white/95 backdrop-blur-2xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-[22px] px-2 py-1.5 flex items-center justify-around gap-1 w-full max-w-[340px] relative">
               <MobileNavItem 
-                id="search" 
-                icon={Search} 
-                label="Tìm kiếm" 
-                isActive={activeTab === 'search'} 
-                onClick={() => setActiveTab('search')} 
+                  id="post" 
+                  icon={PlusCircle} 
+                  label="Đăng tin" 
+                  isActive={false} // Always false since it opens modal
+                  onClick={handlePostButton} 
               />
               
               <MobileNavItem 
@@ -584,12 +570,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
               />
 
               <MobileNavItem 
-                  id="post" 
-                  icon={Plus} 
-                  label="" 
-                  isMain={true} 
-                  isActive={false} // Always false since it opens modal
-                  onClick={handlePostButton} 
+                id="search" 
+                icon={Search} 
+                label="" 
+                isMain={true}
+                isActive={activeTab === 'search'} 
+                onClick={() => setActiveTab('search')} 
               />
 
               <MobileNavItem 

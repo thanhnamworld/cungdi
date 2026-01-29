@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Mail, Lock, User, Phone, Loader2, LogIn, UserPlus, Smartphone, History, Trash2, ArrowRight, KeyRound, CheckCircle2, Clock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -6,12 +7,13 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  initialView?: 'login' | 'register'; // Thêm prop này
+  initialView?: 'login' | 'register';
+  showAlert: (config: any) => void;
 }
 
 const RECENT_LOGINS_KEY = 'tripease_recent_logins';
 
-const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess, initialView = 'login' }) => {
+const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess, initialView = 'login', showAlert }) => {
   // view: 'login' | 'register' | 'forgot'
   const [view, setView] = useState<'login' | 'register' | 'forgot'>(initialView);
   const [loading, setLoading] = useState(false);
@@ -125,10 +127,11 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess, initi
         const { error: authError } = await supabase.auth.signUp(signUpData);
         if (authError) throw authError;
         
-        if (isMail) alert('Vui lòng kiểm tra email để xác nhận!');
-        else {
-          alert('Đăng ký thành công!');
-          saveToRecent(identifier);
+        if (isMail) {
+            showAlert({ title: 'Đăng ký thành công', message: 'Vui lòng kiểm tra email để xác nhận!', variant: 'success' });
+        } else {
+            showAlert({ title: 'Đăng ký thành công', message: 'Chào mừng bạn đến với Cùng đi!', variant: 'success' });
+            saveToRecent(identifier);
         }
       }
       onSuccess();
