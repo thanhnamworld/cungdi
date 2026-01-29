@@ -72,33 +72,6 @@ const App: React.FC = () => {
     setAlertConfig(prev => ({ ...prev, isOpen: false }));
   };
 
-  /* 
-  // --- AUTO LOGIN DISABLED FOR PRODUCTION ---
-  useEffect(() => {
-    const autoLogin = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        console.log("Đang tự động đăng nhập...");
-        const { error } = await supabase.auth.signInWithPassword({
-          phone: '+84825846888', 
-          password: '123123'
-        });
-
-        if (error) {
-            console.error("Auto-login failed:", error);
-            showAlert({
-                title: 'Lỗi tự động đăng nhập',
-                message: error.message,
-                variant: 'danger',
-                confirmText: 'Đóng'
-            });
-        }
-      }
-    };
-    setTimeout(autoLogin, 500);
-  }, [showAlert]);
-  */
-
   const [appSettings, setAppSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem(SETTINGS_KEY);
     return saved ? JSON.parse(saved) : { showCancelled: false, showPastTrips: false, historyDays: 30 };
@@ -192,7 +165,6 @@ const App: React.FC = () => {
 
   const fetchStaffBookings = useCallback(async (userProfile: Profile) => {
     if (!userProfile) return;
-    // Updated query: include driver_profile inside trips to get the driver name correctly for Dashboard filtering
     let query = supabase.from('bookings').select('*, profiles:passenger_id(full_name, phone), trips(*, driver_profile:profiles(full_name))').order('created_at', { ascending: false });
 
     if (userProfile.role === 'driver') {
@@ -428,16 +400,9 @@ const App: React.FC = () => {
 
     return trips.filter(trip => {
       const departureDate = new Date(trip.departure_time);
-      
-      // Filter out trips older than history limit
       if (departureDate < new Date()) {
          if (departureDate < cutoffDate) return false;
       }
-
-      // We REMOVED the global check for !appSettings.showPastTrips here
-      // to allow history to be shown in management views.
-      // SearchTrips component will implement its own filter for future trips only.
-
       if (!appSettings.showCancelled && trip.status === TripStatus.CANCELLED) {
         return false;
       }
@@ -453,16 +418,13 @@ const App: React.FC = () => {
     return bookings.filter(booking => {
         const trip = booking.trip_details || trips.find(t => t.id === booking.trip_id);
         const departureDate = trip ? new Date(trip.departure_time) : new Date(booking.created_at);
-
         if (departureDate < new Date()) {
             if (departureDate < cutoffDate) return false;
         }
-
         if (!appSettings.showCancelled) {
             if (booking.status === 'CANCELLED') return false;
             if (trip && trip.status === TripStatus.CANCELLED) return false;
         }
-
         return true;
     });
   }, [bookings, trips, appSettings]);
@@ -475,9 +437,7 @@ const App: React.FC = () => {
     return staffBookings.filter(booking => {
        const trip = (booking as any).trips;
        const departureDate = trip ? new Date(trip.departure_time) : new Date(booking.created_at);
-
        if (departureDate < new Date() && departureDate < cutoffDate) return false;
-
        if (!appSettings.showCancelled) {
            if (booking.status === 'CANCELLED') return false;
            if (trip && trip.status === TripStatus.CANCELLED) return false;
@@ -493,17 +453,44 @@ const App: React.FC = () => {
   
   const activeTripsCount = useMemo(() => {
     if (!profile) return 0;
-    const nonTerminalTripStatus: TripStatus[] = [TripStatus.PREPARING, TripStatus.URGENT, TripStatus.FULL, TripStatus.ON_TRIP];
-    const myActiveTrips = filteredTrips.filter(t => t.driver_id === profile.id && nonTerminalTripStatus.includes(t.status)).length;
-    return myActiveTrips;
-  }, [filteredTrips, profile]);
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+
+    // Chỉ đếm chuyến xe CUNG CẤP (có sẵn) khởi hành TRONG NGÀY HÔM NAY
+    const activeTripStatuses = [TripStatus.PREPARING, TripStatus.URGENT, TripStatus.FULL, TripStatus.ON_TRIP];
+    return trips.filter(t => {
+      const depTime = new Date(t.departure_time).getTime();
+      return t.driver_id === profile.id && 
+             !t.is_request && 
+             activeTripStatuses.includes(t.status) &&
+             depTime >= startOfToday && depTime <= endOfToday;
+    }).length;
+  }, [trips, profile]);
 
   const activeBookingsCount = useMemo(() => {
     if (!profile) return 0;
-    const nonTerminalBookingStatus = ['PENDING', 'CONFIRMED', 'PICKED_UP', 'ON_BOARD'];
-    const myActiveBookings = filteredBookings.filter(b => nonTerminalBookingStatus.includes(b.status)).length;
-    return myActiveBookings;
-  }, [filteredBookings, profile]);
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+
+    // Chỉ đếm YÊU CẦU CHUYẾN XE (is_request) khởi hành TRONG NGÀY HÔM NAY
+    const activeRequestStatuses = [TripStatus.PREPARING, TripStatus.URGENT];
+    const tripRequestsToday = trips.filter(t => {
+      const depTime = new Date(t.departure_time).getTime();
+      return t.is_request && 
+             activeRequestStatuses.includes(t.status) &&
+             depTime >= startOfToday && depTime <= endOfToday;
+    });
+
+    if (profile.role === 'user') {
+        // Passenger: Count their own active requests today
+        return tripRequestsToday.filter(t => t.driver_id === profile.id).length;
+    } else {
+        // Driver/Staff: Count ALL active requests on the market today
+        return tripRequestsToday.length;
+    }
+  }, [trips, profile]);
 
 
   const handlePostTrip = async (tripsToPost: any[], forUserId?: string) => {
@@ -529,8 +516,6 @@ const App: React.FC = () => {
       const { error } = await supabase.from('trips').insert(formattedTrips);
       if (error) throw error;
       refreshAllData();
-      
-      // Auto close modal handled by props in PostTrip
       setIsPostTripModalOpen(false); 
       setActiveTab('manage-trips'); 
     } catch (err: any) { 
@@ -601,10 +586,6 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     const commonProps = { trips: filteredTrips, onBook: handleOpenBookingModal, userBookings: filteredBookings, profile, onViewTripDetails: handleViewTripDetails, onPostClick: handlePostClick };
-    
-    // Choose the correct data source for Dashboard based on role
-    // User sees their OWN bookings (`filteredBookings`).
-    // Driver/Manager sees their TRIPS' bookings (`filteredStaffBookings`).
     const dashboardData = profile?.role === 'user' ? filteredBookings : filteredStaffBookings;
     const handleManageVehicles = () => setIsVehicleModalOpen(true);
 
@@ -612,7 +593,6 @@ const App: React.FC = () => {
       case 'dashboard-overview': return profile ? <Dashboard bookings={dashboardData} trips={filteredTrips} profile={profile} onViewTripDetails={handleViewTripDetails} currentView="overview" onManageVehicles={handleManageVehicles} /> : <SearchTrips {...commonProps} />;
       case 'dashboard-schedule': return profile ? <Dashboard bookings={dashboardData} trips={filteredTrips} profile={profile} onViewTripDetails={handleViewTripDetails} currentView="schedule" onManageVehicles={handleManageVehicles} /> : <SearchTrips {...commonProps} />;
       case 'dashboard-vehicles': return profile ? <Dashboard bookings={dashboardData} trips={filteredTrips} profile={profile} onViewTripDetails={handleViewTripDetails} currentView="vehicles" onManageVehicles={handleManageVehicles} /> : <SearchTrips {...commonProps} />;
-      // Fallback for old link if any
       case 'dashboard': return profile ? <Dashboard bookings={dashboardData} trips={filteredTrips} profile={profile} onViewTripDetails={handleViewTripDetails} currentView="overview" onManageVehicles={handleManageVehicles} /> : <SearchTrips {...commonProps} />;
       case 'search': return <SearchTrips {...commonProps} />;
       case 'manage-trips': return <TripManagement profile={profile} trips={filteredTrips} bookings={staffBookings} onRefresh={refreshAllData} onViewTripDetails={handleViewTripDetails} showAlert={showAlert} />;
@@ -646,37 +626,9 @@ const App: React.FC = () => {
       <ProfileManagement isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} profile={profile} onUpdate={() => user && fetchProfile(user.id)} stats={userStats} allTrips={trips} userBookings={bookings} onManageVehicles={() => setIsVehicleModalOpen(true)} />
       {selectedTrip && <TripDetailModal trip={selectedTrip} currentBookings={selectedTripBookings} profile={profile} isOpen={isTripDetailModalOpen} onClose={() => { setIsTripDetailModalOpen(false); refreshAllData(); }} onRefresh={() => fetchSelectedTripDetails(selectedTrip.id)} showAlert={showAlert} />}
       <VehicleManagementModal isOpen={isVehicleModalOpen} onClose={() => setIsVehicleModalOpen(false)} profile={profile} onVehiclesUpdated={refreshAllData} showAlert={showAlert} />
-      
-      <GlobalSettingsModal 
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        settings={appSettings}
-        onSave={handleSaveSettings}
-      />
-
-      <ConfirmationModal 
-        isOpen={alertConfig.isOpen}
-        title={alertConfig.title}
-        message={alertConfig.message}
-        onClose={closeAlert}
-        onConfirm={() => {
-          if (alertConfig.onConfirm) alertConfig.onConfirm();
-          closeAlert();
-        }}
-        confirmText={alertConfig.confirmText}
-        cancelText={alertConfig.cancelText}
-        variant={alertConfig.variant}
-      />
-
-      {/* New PostTrip Modal */}
-      <PostTrip 
-        isOpen={isPostTripModalOpen}
-        onClose={() => setIsPostTripModalOpen(false)}
-        onPost={handlePostTrip}
-        profile={profile}
-        onManageVehicles={() => setIsVehicleModalOpen(true)}
-        initialMode={postTripMode}
-      />
+      <GlobalSettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} settings={appSettings} onSave={handleSaveSettings} />
+      <ConfirmationModal isOpen={alertConfig.isOpen} title={alertConfig.title} message={alertConfig.message} onClose={closeAlert} onConfirm={() => { if (alertConfig.onConfirm) alertConfig.onConfirm(); closeAlert(); }} confirmText={alertConfig.confirmText} cancelText={alertConfig.cancelText} variant={alertConfig.variant} />
+      <PostTrip isOpen={isPostTripModalOpen} onClose={() => setIsPostTripModalOpen(false)} onPost={handlePostTrip} profile={profile} onManageVehicles={() => setIsVehicleModalOpen(true)} initialMode={postTripMode} />
     </>
   );
 };

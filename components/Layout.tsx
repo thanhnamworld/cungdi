@@ -225,7 +225,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
           const hasChildren = item.children && item.children.length > 0;
 
           if (hasChildren) {
-            // Check if any child is active to highlight the parent group
             const isGroupActive = item.children?.some(child => activeTab === child.id);
             
             return (
@@ -298,24 +297,23 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {activeTripsCount > 0 && (
-              <div className="flex items-center gap-1.5 bg-emerald-100/70 text-emerald-800 px-3 py-1 rounded-full border border-emerald-200/80">
-                <Car size={10} className="text-emerald-600" />
-                <span className="font-bold text-[9px]">{activeTripsCount} Đang chạy</span>
-              </div>
-            )}
-            {activeBookingsCount > 0 && (
-              <div className="flex items-center gap-1.5 bg-orange-100/70 text-orange-800 px-3 py-1 rounded-full border border-orange-200/80">
-                <CheckCircle2 size={10} className="text-orange-600" />
-                <span className="font-bold text-[9px]">{activeBookingsCount} Yêu cầu</span>
-              </div>
-            )}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-1 bg-emerald-100/70 text-emerald-800 px-2 sm:px-3 py-1 rounded-full border border-emerald-200/80 shadow-sm" title="Chuyến xe hôm nay">
+              <Car size={12} className="text-emerald-600" />
+              <span className="font-bold text-[10px] sm:text-[9px]">
+                {activeTripsCount}<span className="hidden sm:inline ml-1">Chuyến xe</span>
+              </span>
+            </div>
+            <div className="flex items-center gap-1 bg-orange-100/70 text-orange-800 px-2 sm:px-3 py-1 rounded-full border border-orange-200/80 shadow-sm" title="Yêu cầu hôm nay">
+              <CheckCircle2 size={12} className="text-orange-600" />
+              <span className="font-bold text-[10px] sm:text-[9px]">
+                {activeBookingsCount}<span className="hidden sm:inline ml-1">Yêu cầu</span>
+              </span>
+            </div>
           </div>
         </div>
       )}
       <div className="flex flex-1 overflow-hidden flex-col xl:flex-row">
-        {/* Sidebar Desktop */}
         <aside className="hidden xl:flex flex-col w-72 bg-gradient-to-b from-emerald-50/80 to-indigo-50/60 border-r border-slate-100 p-8 shrink-0">
           <button
             type="button"
@@ -382,10 +380,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
           </div>
         </aside>
 
-        {/* Main Content */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
           <header className="h-20 bg-gradient-to-r from-emerald-50/80 via-white/90 to-indigo-50/80 backdrop-blur-md border-b border-emerald-100/50 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-20">
-            {/* Left: Logo & Title (Unified with Desktop) */}
             <div className="flex items-center gap-3 z-20">
               <button 
                 type="button"
@@ -401,12 +397,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
               </button>
             </div>
 
-            {/* Center: Absolute Road Animation - RESTORED & OPTIMIZED FOR MOBILE */}
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[140px] md:max-w-md z-10 pointer-events-none opacity-80 md:opacity-100">
                 <RoadAnimation />
             </div>
 
-            {/* Right: Actions */}
             <div className="flex items-center gap-0.5 sm:gap-2 z-20">
               <button
                 type="button"
@@ -477,58 +471,30 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
           </div>
 
           <div className="fixed bottom-24 xl:bottom-8 right-4 xl:right-8 z-50 flex flex-col gap-2.5">
-              <button
-                  onClick={handleScrollAction}
-                  className="w-9 h-9 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-700 transition-all active:scale-90 animate-in fade-in zoom-in-95"
-              >
+              <button onClick={handleScrollAction} className="w-9 h-9 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-700 transition-all active:scale-90 animate-in fade-in zoom-in-95">
                   <div className={`transition-transform duration-500 ease-in-out ${isScrolled ? 'rotate-0' : 'rotate-180'}`}>
                       <ChevronUp size={18} />
                   </div>
               </button>
-              <button
-                  onClick={() => setShowUserGuide(true)}
-                  className="w-9 h-9 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-all active:scale-90 animate-in fade-in zoom-in-95"
-              >
+              <button onClick={() => setShowUserGuide(true)} className="w-9 h-9 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-all active:scale-90 animate-in fade-in zoom-in-95">
                   <HelpCircle size={18} />
               </button>
-              <a
-                  href="https://zalo.me/0852659956"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all active:scale-90 animate-in fade-in zoom-in-95 overflow-hidden border border-slate-100"
-              >
-                  <img 
-                    src="https://upload.wikimedia.org/wikipedia/commons/9/91/Icon_of_Zalo.svg" 
-                    alt="Zalo" 
-                    className="w-full h-full object-cover scale-90"
-                  />
+              <a href="https://zalo.me/0852659956" target="_blank" rel="noreferrer" className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all active:scale-90 animate-in fade-in zoom-in-95 overflow-hidden border border-slate-100">
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/9/91/Icon_of_Zalo.svg" alt="Zalo" className="w-full h-full object-cover scale-90" />
               </a>
-              <a
-                  href="tel:0852659956"
-                  className="w-9 h-9 bg-rose-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-rose-700 transition-all active:scale-90 animate-in fade-in zoom-in-95"
-              >
+              <a href="tel:0852659956" className="w-9 h-9 bg-rose-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-rose-700 transition-all active:scale-90 animate-in fade-in zoom-in-95">
                   <Phone size={18} />
               </a>
           </div>
 
-          {/* Mobile Navigation - Redesigned Floating Dock */}
           <nav className="xl:hidden fixed bottom-5 left-4 right-4 z-[70] flex justify-center" ref={mobileMenuRef}>
-            
             {showMobileManageMenu && (
-              <div className="absolute bottom-full right-0 mb-4 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 flex flex-col gap-1 animate-in slide-in-from-bottom-2 fade-in duration-200 origin-bottom-right">
-                {[
-                    // Flattened list for mobile dropdown convenience
-                    ...personalManageItems, 
-                    ...(isStaff ? adminManageItems.flatMap(i => i.children ? i.children : [i]) : [])
-                ].map((item) => {
-                  if (item.id === 'post-new-trip') return null; // Skip post button here as it's main action
-                  const isActive = activeTab === item.id || (item.children && item.children.some(c => c.id === activeTab));
+              <div className="absolute bottom-full right-0 mb-4 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 flex flex-col gap-1 animate-in slide-in-from-bottom-2 fade-in duration-200 origin-bottom-right max-h-[70vh] overflow-y-auto custom-scrollbar">
+                {[...personalManageItems.flatMap(i => i.children ? i.children : [i]), ...(isStaff ? adminManageItems.flatMap(i => i.children ? i.children : [i]) : [])].map((item) => {
+                  if (item.id === 'post-new-trip') return null;
+                  const isActive = activeTab === item.id;
                   return (
-                    <button
-                      key={item.id}
-                      onClick={() => { setActiveTab(item.children ? item.children[0].id : item.id); setShowMobileManageMenu(false); }}
-                      className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all relative ${isActive ? 'bg-emerald-50 text-emerald-600' : 'hover:bg-slate-50 text-slate-600'}`}
-                    >
+                    <button key={item.id} onClick={() => { setActiveTab(item.id); setShowMobileManageMenu(false); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all relative shrink-0 ${isActive ? 'bg-emerald-50 text-emerald-600' : 'hover:bg-slate-50 text-slate-600'}`}>
                       <item.icon size={18} className={isActive ? 'text-emerald-600' : 'text-slate-400'} />
                       <span className="text-xs font-bold">{item.label}</span>
                       {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-600"></div>}
@@ -540,60 +506,30 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, noti
                     </button>
                   );
                 })}
-                {profile && (
-                    <button
-                    onClick={() => { onProfileClick(); setShowMobileManageMenu(false); }}
-                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all hover:bg-slate-50 text-slate-600 border-t border-slate-50 mt-1"
-                    >
-                    <User size={18} className="text-slate-400" />
-                    <span className="text-xs font-bold">Hồ sơ cá nhân</span>
+                <div className="h-px bg-slate-100 my-1 shrink-0"></div>
+                {profile ? (
+                    <>
+                        <button onClick={() => { onProfileClick(); setShowMobileManageMenu(false); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all hover:bg-slate-50 text-slate-600 shrink-0">
+                            <div className="relative"><User size={18} className="text-slate-400" /><div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full border border-white"></div></div>
+                            <span className="text-xs font-bold">Hồ sơ: {profile.full_name}</span>
+                        </button>
+                        <button onClick={() => { supabase.auth.signOut(); setShowMobileManageMenu(false); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all hover:bg-rose-50 text-rose-500 shrink-0">
+                            <LogOut size={18} /><span className="text-xs font-bold">Đăng xuất</span>
+                        </button>
+                    </>
+                ) : (
+                    <button onClick={() => { onLoginClick(); setShowMobileManageMenu(false); }} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all bg-emerald-600 text-white shadow-lg shadow-emerald-200 shrink-0">
+                        <LogIn size={18} /><span className="text-xs font-bold">Đăng nhập ngay</span>
                     </button>
                 )}
               </div>
             )}
-
             <div className="bg-white/95 backdrop-blur-2xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-[22px] px-2 py-1.5 flex items-center justify-around gap-1 w-full max-w-[340px] relative">
-              <MobileNavItem 
-                  id="post" 
-                  icon={PlusCircle} 
-                  label="Đăng tin" 
-                  isActive={false} // Always false since it opens modal
-                  onClick={handlePostButton} 
-              />
-              
-              <MobileNavItem 
-                id="manage-trips" 
-                icon={Car} 
-                label="Chuyến xe" 
-                isActive={activeTab === 'manage-trips'} 
-                onClick={() => setActiveTab('manage-trips')} 
-              />
-
-              <MobileNavItem 
-                id="search" 
-                icon={Search} 
-                label="" 
-                isMain={true}
-                isActive={activeTab === 'search'} 
-                onClick={() => setActiveTab('search')} 
-              />
-
-              <MobileNavItem 
-                id="manage-orders" 
-                icon={CheckCircle2} 
-                label="Yêu cầu" 
-                isActive={activeTab === 'manage-orders'} 
-                onClick={() => setActiveTab('manage-orders')} 
-              />
-
-              <MobileNavItem 
-                id="manage" 
-                icon={Grid} 
-                label="Menu" 
-                hasBadge={pendingOrderCount > 0 && isStaff}
-                isActive={personalManageItems.some(i => i.id === activeTab || i.children?.some(c => c.id === activeTab))} 
-                onClick={() => setShowMobileManageMenu(!showMobileManageMenu)} 
-              />
+              <MobileNavItem id="post" icon={PlusCircle} label="Đăng tin" isActive={false} onClick={handlePostButton} />
+              <MobileNavItem id="manage-trips" icon={Car} label="Chuyến xe" isActive={activeTab === 'manage-trips'} onClick={() => setActiveTab('manage-trips')} />
+              <MobileNavItem id="search" icon={Search} label="" isMain={true} isActive={activeTab === 'search'} onClick={() => setActiveTab('search')} />
+              <MobileNavItem id="manage-orders" icon={CheckCircle2} label="Yêu cầu" isActive={activeTab === 'manage-orders'} onClick={() => setActiveTab('manage-orders')} />
+              <MobileNavItem id="manage" icon={Grid} label="Menu" hasBadge={pendingOrderCount > 0 && isStaff} isActive={personalManageItems.some(i => i.id === activeTab || i.children?.some(c => c.id === activeTab))} onClick={() => setShowMobileManageMenu(!showMobileManageMenu)} />
             </div>
           </nav>
         </main>
