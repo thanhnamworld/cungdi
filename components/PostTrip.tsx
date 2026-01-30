@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MapPin, Calendar, Users, Car, CheckCircle2, Navigation, Clock, Repeat, ChevronDown, Banknote, Loader2, AlertTriangle, Info, ArrowRight, DollarSign, Check, Map as MapIcon, Timer, PlusCircle, ToggleLeft, ToggleRight, Sparkles, UserSearch, X, ListChecks } from 'lucide-react';
+import { Send, MapPin, Calendar, Users, Car, CheckCircle2, Navigation, Clock, Repeat, ChevronDown, Banknote, Loader2, AlertTriangle, Info, ArrowRight, DollarSign, Check, Map as MapIcon, Timer, PlusCircle, ToggleLeft, ToggleRight, Sparkles, UserSearch, X, ListChecks, Save } from 'lucide-react';
 import { getRouteDetails } from '../services/geminiService.ts';
 import { LOCAL_LOCATIONS } from '../services/locationData.ts';
 import CustomDatePicker from './CustomDatePicker.tsx';
 import CustomTimePicker from './CustomTimePicker.tsx';
 import { getVehicleConfig, UnifiedDropdown } from './SearchTrips.tsx'; 
 import { supabase } from '../lib/supabase.ts';
-import { Profile } from '../types.ts';
+import { Profile, Trip } from '../types.ts';
 
 interface Vehicle {
   id: string;
@@ -20,11 +20,13 @@ interface Vehicle {
 
 interface PostTripProps {
   onPost: (trips: any[], forUserId?: string) => void;
+  onUpdate?: (tripId: string, data: any) => void;
   profile: Profile | null;
   onManageVehicles: () => void;
   initialMode?: 'DRIVER' | 'PASSENGER';
-  isOpen: boolean; // New prop
-  onClose: () => void; // New prop
+  isOpen: boolean; 
+  onClose: () => void; 
+  editingTrip?: Trip | null;
 }
 
 const DAYS_OF_WEEK = [
@@ -66,14 +68,18 @@ const searchLocalPlaces = async (query: string) => {
   });
 };
 
-const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, initialMode = 'DRIVER', isOpen, onClose }) => {
+const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManageVehicles, initialMode = 'DRIVER', isOpen, onClose, editingTrip }) => {
   const [postMode, setPostMode] = useState<'DRIVER' | 'PASSENGER'>(initialMode);
 
   useEffect(() => {
     if (isOpen) {
-        setPostMode(initialMode);
+        if (editingTrip) {
+            setPostMode(editingTrip.is_request ? 'PASSENGER' : 'DRIVER');
+        } else {
+            setPostMode(initialMode);
+        }
     }
-  }, [initialMode, isOpen]);
+  }, [initialMode, isOpen, editingTrip]);
 
   const [origin, setOrigin] = useState('');
   const [originDetail, setOriginDetail] = useState('');
@@ -136,18 +142,50 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
   }, [isOpen]);
 
   useEffect(() => {
-    if (postMode === 'DRIVER') {
-       setSeats(4);
-       if (price === '0') setPrice('150000');
-       setIsNegotiable(false);
+    if (editingTrip) {
+        setOrigin(editingTrip.origin_name);
+        setDestination(editingTrip.dest_name);
+        setPrice(editingTrip.price.toString());
+        setSeats(editingTrip.seats);
+        setOriginDetail(editingTrip.origin_desc || '');
+        setDestDetail(editingTrip.dest_desc || '');
+        
+        const dep = new Date(editingTrip.departure_time);
+        const d = String(dep.getDate()).padStart(2, '0');
+        const m = String(dep.getMonth() + 1).padStart(2, '0');
+        const y = dep.getFullYear();
+        setDate(`${d}-${m}-${y}`);
+        setTime(`${String(dep.getHours()).padStart(2, '0')}:${String(dep.getMinutes()).padStart(2, '0')}`);
+        
+        if (editingTrip.arrival_time) {
+            const arr = new Date(editingTrip.arrival_time);
+            setArrivalTime(`${String(arr.getHours()).padStart(2, '0')}:${String(arr.getMinutes()).padStart(2, '0')}`);
+        }
+
+        if (editingTrip.price === 0 && editingTrip.is_request) {
+            setIsNegotiable(true);
+        } else {
+            setIsNegotiable(false);
+        }
+        
+        // Cannot edit recurring or vehicle details easily from here for now without complex logic
+        setIsRecurring(false);
+        
     } else {
-       setSeats(1);
-       setPrice('0'); 
-       setIsNegotiable(true);
+        // Reset defaults for new post
+        if (postMode === 'DRIVER') {
+           setSeats(4);
+           if (price === '0') setPrice('150000');
+           setIsNegotiable(false);
+        } else {
+           setSeats(1);
+           setPrice('0'); 
+           setIsNegotiable(true);
+        }
+        setSelectedUser(null);
+        setSearchQuery('');
     }
-    setSelectedUser(null);
-    setSearchQuery('');
-  }, [postMode]);
+  }, [postMode, editingTrip, isOpen]);
 
   const fetchUserVehicles = async () => {
     // Priority: If selectedUser already has vehicles loaded from search/cache, use them
@@ -156,7 +194,6 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
         setUserVehicles(preloadedVehicles);
         if (preloadedVehicles.length > 0) {
              // Only reset/default selection if we don't have a valid selection for this user
-             // Or simplified: Always select first for new user
              setSelectedVehicleId(preloadedVehicles[0].id);
         } else {
              setSelectedVehicleId('');
@@ -170,7 +207,21 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
     const { data, error } = await supabase.from('vehicles').select('*').eq('user_id', userIdToFetch);
     if (data) {
       setUserVehicles(data);
-      // Select the first vehicle by default when list updates
+      
+      // Auto-select vehicle if editing
+      if (editingTrip && editingTrip.vehicle_info) {
+          const parts = editingTrip.vehicle_info.split('(');
+          if (parts.length > 1) {
+              const plate = parts[1].replace(')', '').trim();
+              const matched = data.find(v => v.license_plate === plate);
+              if (matched) {
+                  setSelectedVehicleId(matched.id);
+                  return;
+              }
+          }
+      }
+      
+      // Default selection
       setSelectedVehicleId(data.length > 0 ? data[0].id : '');
     } else {
       setUserVehicles([]);
@@ -178,7 +229,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
     }
   };
 
-  useEffect(() => { fetchUserVehicles(); }, [profile, selectedUser, isOpen]);
+  useEffect(() => { fetchUserVehicles(); }, [profile, selectedUser, isOpen, editingTrip]);
   
   const formatNumber = (num: string) => {
     if (!num) return "";
@@ -264,7 +315,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
   
   useEffect(() => {
     const analyze = async () => {
-      if (originUri && destUri && origin && destination) {
+      if (originUri && destUri && origin && destination && !editingTrip) {
         setAnalyzingRoute(true);
         setRouteData(null);
         try {
@@ -278,23 +329,28 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
       }
     };
     analyze();
-  }, [originUri, destUri, origin, destination]);
+  }, [originUri, destUri, origin, destination, editingTrip]);
 
+  // Handle automatic arrival time calculation
   useEffect(() => {
+    const [h, m] = time.split(':').map(Number);
+    const depDate = new Date();
+    depDate.setHours(h, m, 0, 0);
+
+    let durationMs = 2 * 60 * 60 * 1000; // Default 2h
+
     if (routeData?.durationInMinutes) {
-      const [h, m] = time.split(':').map(Number);
-      const depDate = new Date();
-      depDate.setHours(h, m, 0, 0);
-      const arrDate = new Date(depDate.getTime() + routeData.durationInMinutes * 60 * 1000);
-      setArrivalTime(`${String(arrDate.getHours()).padStart(2, '0')}:${String(arrDate.getMinutes()).padStart(2, '0')}`);
-    } else {
-      const [h, m] = time.split(':').map(Number);
-      const depDate = new Date();
-      depDate.setHours(h, m, 0, 0);
-      const arrDate = new Date(depDate.getTime() + 2 * 60 * 60 * 1000);
-      setArrivalTime(`${String(arrDate.getHours()).padStart(2, '0')}:${String(arrDate.getMinutes()).padStart(2, '0')}`);
+        durationMs = routeData.durationInMinutes * 60 * 1000;
+    } else if (editingTrip) {
+        // Calculate original duration to preserve spacing when shifting time
+        const origDep = new Date(editingTrip.departure_time);
+        const origArr = editingTrip.arrival_time ? new Date(editingTrip.arrival_time) : new Date(origDep.getTime() + durationMs);
+        durationMs = origArr.getTime() - origDep.getTime();
     }
-  }, [time, routeData]);
+
+    const arrDate = new Date(depDate.getTime() + durationMs);
+    setArrivalTime(`${String(arrDate.getHours()).padStart(2, '0')}:${String(arrDate.getMinutes()).padStart(2, '0')}`);
+  }, [time, routeData, editingTrip]); // Trigger on Time Change, Route Data Change, or Editing Trip Load
 
   const toggleDay = (day: number) => {
     setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
@@ -334,8 +390,23 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
         return;
     }
 
-    const tripsToCreate: any[] = [];
-    if (isRecurring) {
+    // Determine Departure/Arrival Times
+    let tripsToCreate: any[] = [];
+    
+    if (editingTrip) {
+       // UPDATE MODE: Only update current trip
+       const [d, m, y] = date.split('-').map(Number);
+       const departure = new Date(y, m - 1, d);
+       const [h, min] = time.split(':').map(Number);
+       departure.setHours(h, min, 0, 0);
+       
+       const arrival = new Date(y, m - 1, d);
+       const [ah, amin] = arrivalTime.split(':').map(Number);
+       arrival.setHours(ah, amin, 0, 0);
+       if (arrival < departure) arrival.setDate(arrival.getDate() + 1);
+       
+       tripsToCreate.push({ departureTime: departure.toISOString(), arrivalTime: arrival.toISOString() });
+    } else if (isRecurring) {
       const today = new Date();
       for (let i = 0; i < 7; i++) {
         const nextDay = new Date(today);
@@ -356,7 +427,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
       const [h, min] = time.split(':').map(Number);
       departure.setHours(h, min, 0, 0);
       
-      if (departure < new Date() && !isStaff) {
+      if (departure < new Date() && !isStaff && !editingTrip) {
         setError("Không thể đặt chuyến trong quá khứ. Vui lòng chọn ngày giờ trong tương lai.");
         return;
       }
@@ -377,7 +448,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
       destination: { name: destination, description: destDetail, mapsUrl: destUri },
       price: finalPrice, 
       seats: seats,
-      availableSeats: seats, 
+      availableSeats: editingTrip ? (editingTrip.available_seats - (editingTrip.seats - seats)) : seats, // Complex logic if reducing seats, simplistic here: reset to seats if new
       vehicleInfo: postMode === 'DRIVER' ? `${selectedVehicle?.vehicle_type} (${selectedVehicle?.license_plate})` : 'Cần tìm xe',
       isRecurring: isRecurring,
       recurringDays: selectedDays,
@@ -385,7 +456,23 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
     };
 
     try {
-      await onPost(tripsToCreate.map(t => ({ ...tripBase, departureTime: t.departureTime, arrivalTime: t.arrivalTime })), selectedUser?.id);
+      if (editingTrip && onUpdate) {
+          const updatePayload = {
+              origin_name: tripBase.origin.name,
+              origin_desc: tripBase.origin.description,
+              dest_name: tripBase.destination.name,
+              dest_desc: tripBase.destination.description,
+              departure_time: tripsToCreate[0].departureTime,
+              arrival_time: tripsToCreate[0].arrivalTime,
+              price: tripBase.price,
+              seats: tripBase.seats,
+              vehicle_info: tripBase.vehicleInfo,
+              // Note: available_seats logic handled in App.tsx typically to verify bookings
+          };
+          await onUpdate(editingTrip.id, updatePayload);
+      } else {
+          await onPost(tripsToCreate.map(t => ({ ...tripBase, departureTime: t.departureTime, arrivalTime: t.arrivalTime })), selectedUser?.id);
+      }
     } catch (err: any) {
       setError(err.message || "Đã có lỗi xảy ra khi lưu.");
     } finally {
@@ -424,16 +511,18 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-center bg-white shrink-0 z-20">
                 <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200">
                     <button 
+                    disabled={!!editingTrip}
                     className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${postMode === 'DRIVER' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`} 
                     onClick={() => setPostMode('DRIVER')}
                     >
-                    <Car size={14} /> Có xe trống
+                    <Car size={14} /> {editingTrip ? 'Chuyến xe' : 'Có xe trống'}
                     </button>
                     <button 
+                    disabled={!!editingTrip}
                     className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${postMode === 'PASSENGER' ? 'bg-orange-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`} 
                     onClick={() => setPostMode('PASSENGER')}
                     >
-                    <CheckCircle2 size={14} /> Cần tìm xe
+                    <CheckCircle2 size={14} /> {editingTrip ? 'Yêu cầu' : 'Cần tìm xe'}
                     </button>
                 </div>
             </div>
@@ -441,7 +530,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
             {/* Scrollable Content - Reduced Padding */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-3 md:p-4 bg-slate-50">
                 
-                {isStaff && (
+                {isStaff && !editingTrip && (
                     <div ref={searchRef} className={`mb-4 p-3 rounded-[24px] bg-white border shadow-sm relative flex flex-col shrink-0 ${selectedUser ? 'border-indigo-200' : 'border-slate-100'}`}>
                     <div className="flex items-center justify-between mb-2">
                         <h4 className="text-xs font-bold flex items-center gap-2 text-indigo-600">
@@ -595,15 +684,17 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
                         </h3>
                         
                         <div className={`p-3 md:p-4 rounded-[24px] border shadow-sm space-y-3 ${postMode === 'PASSENGER' ? 'bg-white border-slate-100' : 'bg-white/80 border-white'}`}>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-lg shadow-sm ${postMode === 'PASSENGER' ? 'bg-orange-100 text-orange-600' : 'bg-indigo-50 text-indigo-600'}`}><Repeat size={14} /></div>
-                            <span className="text-xs font-bold text-slate-700 font-outfit">Lịch đi định kỳ</span>
+                        {!editingTrip && (
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                <div className={`p-1.5 rounded-lg shadow-sm ${postMode === 'PASSENGER' ? 'bg-orange-100 text-orange-600' : 'bg-indigo-50 text-indigo-600'}`}><Repeat size={14} /></div>
+                                <span className="text-xs font-bold text-slate-700 font-outfit">Lịch đi định kỳ</span>
+                                </div>
+                                <button type="button" onClick={() => setIsRecurring(!isRecurring)} className={`w-10 h-5 rounded-full transition-all relative ${isRecurring ? (postMode === 'PASSENGER' ? 'bg-orange-500 shadow-orange-200' : 'bg-emerald-600 shadow-emerald-100') + ' shadow-lg' : 'bg-slate-300'}`}>
+                                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${isRecurring ? 'left-5.5' : 'left-0.5'}`} />
+                                </button>
                             </div>
-                            <button type="button" onClick={() => setIsRecurring(!isRecurring)} className={`w-10 h-5 rounded-full transition-all relative ${isRecurring ? (postMode === 'PASSENGER' ? 'bg-orange-500 shadow-orange-200' : 'bg-emerald-600 shadow-emerald-100') + ' shadow-lg' : 'bg-slate-300'}`}>
-                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${isRecurring ? 'left-5.5' : 'left-0.5'}`} />
-                            </button>
-                        </div>
+                        )}
 
                         <div className="space-y-3">
                             {!isRecurring ? (
@@ -814,7 +905,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, profile, onManageVehicles, 
                         </div>
 
                         <button type="submit" disabled={loading} className={`w-full h-[48px] text-white rounded-[20px] font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] font-outfit mt-1 ${postMode === 'PASSENGER' ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}`}>
-                        {loading ? <Loader2 className="animate-spin" size={16} /> : <><Send size={16} strokeWidth={2.5} /> {postMode === 'DRIVER' ? 'Đăng chuyến ngay' : 'Đăng nhu cầu ngay'}</>}
+                        {loading ? <Loader2 className="animate-spin" size={16} /> : (editingTrip ? <><Save size={16} strokeWidth={2.5} /> Lưu thay đổi</> : <><Send size={16} strokeWidth={2.5} /> {postMode === 'DRIVER' ? 'Đăng chuyến ngay' : 'Đăng nhu cầu ngay'}</>)}
                         </button>
                     </div>
                     </div>

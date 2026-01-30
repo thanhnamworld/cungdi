@@ -96,6 +96,7 @@ const App: React.FC = () => {
   
   const [isPostTripModalOpen, setIsPostTripModalOpen] = useState(false); 
   const [postTripMode, setPostTripMode] = useState<'DRIVER' | 'PASSENGER'>('DRIVER');
+  const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
 
   const [alertConfig, setAlertConfig] = useState<AlertConfig>({ isOpen: false, title: '', message: '' });
 
@@ -424,10 +425,23 @@ const App: React.FC = () => {
     }
   };
 
-  const handleViewTripDetails = useCallback((trip: Trip) => { setSelectedTrip(trip); setIsTripDetailModalOpen(true); }, []);
+  const handleViewTripDetails = useCallback((trip: Trip) => { 
+      setSelectedTrip(trip); 
+      // Gọi hàm này để tải danh sách booking của chuyến ngay khi mở modal
+      fetchSelectedTripDetails(trip.id);
+      setIsTripDetailModalOpen(true); 
+  }, [fetchSelectedTripDetails]);
+
+  // Updated to handle Edit click from Detail Modal
+  const handleEditTripRequest = (trip: Trip) => {
+      setEditingTrip(trip);
+      setPostTripMode(trip.is_request ? 'PASSENGER' : 'DRIVER');
+      setIsPostTripModalOpen(true); // Open post modal in edit mode (z-index higher)
+  };
 
   const handlePostClick = (mode: 'DRIVER' | 'PASSENGER') => {
     if (!user) { openAuthModal('register'); return; }
+    setEditingTrip(null); // Ensure we are not editing
     setPostTripMode(mode);
     setIsPostTripModalOpen(true);
   };
@@ -466,6 +480,26 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateTrip = async (tripId: string, data: any) => {
+      try {
+          const { error } = await supabase.from('trips').update(data).eq('id', tripId);
+          if (error) throw error;
+          
+          refreshAllData();
+          
+          // Refresh Detail Modal Data if it is the one being edited
+          if (selectedTrip && selectedTrip.id === tripId) {
+              fetchSelectedTripDetails(tripId);
+          }
+
+          setIsPostTripModalOpen(false);
+          setEditingTrip(null);
+          showAlert({ title: 'Thành công', message: 'Đã cập nhật thông tin chuyến xe.', variant: 'success' });
+      } catch (err: any) {
+          showAlert({ title: 'Lỗi cập nhật', message: err.message, variant: 'danger' });
+      }
+  };
+
   return (
     <>
       <Layout 
@@ -486,11 +520,11 @@ const App: React.FC = () => {
       {selectedTrip && <BookingModal trip={selectedTrip} profile={profile} isOpen={isBookingModalOpen} onClose={() => setIsBookingModalOpen(false)} onConfirm={handleConfirmBooking} />}
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} onSuccess={() => refreshAllData()} showAlert={showAlert} initialView={authModalView} />
       <ProfileManagement isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} profile={profile} onUpdate={() => user && fetchProfile(user.id)} stats={userStats} allTrips={trips} userBookings={bookings} onManageVehicles={() => setIsVehicleModalOpen(true)} />
-      {selectedTrip && <TripDetailModal trip={selectedTrip} currentBookings={selectedTripBookings} profile={profile} isOpen={isTripDetailModalOpen} onClose={() => { setIsTripDetailModalOpen(false); refreshAllData(); }} onRefresh={() => fetchSelectedTripDetails(selectedTrip.id)} showAlert={showAlert} />}
+      {selectedTrip && <TripDetailModal trip={selectedTrip} currentBookings={selectedTripBookings} profile={profile} isOpen={isTripDetailModalOpen} onClose={() => { setIsTripDetailModalOpen(false); refreshAllData(); }} onRefresh={() => fetchSelectedTripDetails(selectedTrip.id)} onEdit={handleEditTripRequest} showAlert={showAlert} disableClickOutside={isPostTripModalOpen || isBookingModalOpen || alertConfig.isOpen} />}
       <VehicleManagementModal isOpen={isVehicleModalOpen} onClose={() => setIsVehicleModalOpen(false)} profile={profile} onVehiclesUpdated={refreshAllData} showAlert={showAlert} />
       <GlobalSettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} settings={appSettings} onSave={handleSaveSettings} />
       <ConfirmationModal isOpen={alertConfig.isOpen} title={alertConfig.title} message={alertConfig.message} onClose={closeAlert} onConfirm={() => { if (alertConfig.onConfirm) alertConfig.onConfirm(); closeAlert(); }} confirmText={alertConfig.confirmText} cancelText={alertConfig.cancelText} variant={alertConfig.variant} />
-      <PostTrip isOpen={isPostTripModalOpen} onClose={() => setIsPostTripModalOpen(false)} onPost={handlePostTrip} profile={profile} onManageVehicles={() => setIsVehicleModalOpen(true)} initialMode={postTripMode} />
+      <PostTrip isOpen={isPostTripModalOpen} onClose={() => { setIsPostTripModalOpen(false); setEditingTrip(null); }} onPost={handlePostTrip} onUpdate={handleUpdateTrip} profile={profile} onManageVehicles={() => setIsVehicleModalOpen(true)} initialMode={postTripMode} editingTrip={editingTrip} />
     </>
   );
 };

@@ -1,13 +1,14 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { 
-  X, Car, MapPin, Clock, Users, DollarSign, Calendar, Navigation, CheckCircle2, AlertCircle, Play, Timer, Ban, Phone, ArrowRight, Loader2, ListChecks, LucideIcon, Hash, CarFront, Zap, Crown, Shield, Trash2, Star, Radio, ArrowUpDown, Filter, ShieldCheck, Wifi, Snowflake, Droplets, Search, LayoutList, LayoutGrid, User, Info, MessageSquareQuote, ClipboardList, XCircle
+  X, Car, MapPin, Clock, Users, Calendar, CheckCircle2, Play, Phone, Loader2, ListChecks, LayoutList, LayoutGrid, User, ClipboardList, XCircle, Trash2, Search, Edit3, AlertTriangle
 } from 'lucide-react';
-import { Trip, Booking, Profile, UserRole, TripStatus } from '../types';
+import { Trip, Booking, Profile, TripStatus } from '../types';
 import { supabase } from '../lib/supabase';
 import CopyableCode from './CopyableCode';
 import { getVehicleConfig, getTripStatusDisplay, UnifiedDropdown } from './SearchTrips';
 import { BookingStatusSelector, statusOptions } from './OrderManagement';
+import { TripStatusSelector } from './TripManagement';
 
 interface TripDetailModalProps {
   trip: Trip | null;
@@ -16,18 +17,18 @@ interface TripDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRefresh: () => void;
+  onEdit: (trip: Trip) => void;
   showAlert: (config: any) => void;
+  disableClickOutside?: boolean; // Thêm prop này
 }
 
 const removeAccents = (str: string) => {
   return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 };
 
-type SortConfig = { key: string; direction: 'asc' | 'desc' | null };
-
-const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings, profile, isOpen, onClose, onRefresh, showAlert }) => {
+const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings, profile, isOpen, onClose, onRefresh, onEdit, showAlert, disableClickOutside = false }) => {
   const [actionLoadingBooking, setActionLoadingBooking] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState('DEFAULT'); 
+  const [actionLoadingTripStatus, setActionLoadingTripStatus] = useState(false);
   const [statusFilter, setStatusFilter] = useState('ALL'); 
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid'); 
   const [searchTerm, setSearchTerm] = useState(''); 
@@ -35,22 +36,29 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Nếu đang mở modal khác đè lên (disableClickOutside = true) thì không xử lý đóng
+      if (disableClickOutside) return;
+
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
         onClose();
       }
     };
+    
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       document.body.style.overflow = 'hidden';
+      if (trip) {
+          onRefresh();
+      }
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, trip?.id, disableClickOutside]); // Thêm disableClickOutside vào dependency
 
-  // --- LOGIC TÍNH TOÁN GHẾ DỰA TRÊN DANH SÁCH ORDER THỰC TẾ ---
-  const { bookedSeatsCount, availableSeatsCount, revenue, bookingStats } = useMemo(() => {
+  // Tính toán thống kê
+  const { bookedSeatsCount, availableSeatsCount, bookingStats } = useMemo(() => {
     if (!trip) return { bookedSeatsCount: 0, availableSeatsCount: 0, revenue: 0, bookingStats: { pending: 0, confirmed: 0, pickedUp: 0, onBoard: 0, cancelled: 0 } };
     
     const confirmedBookings = currentBookings.filter(b => b.status === 'CONFIRMED');
@@ -81,7 +89,6 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
 
   const parseBookingNote = (note?: string) => {
     if (!note) return { pickup: null, dropoff: null, message: null };
-    
     const pickupMatch = note.match(/📍 Đón: (.*)/);
     const dropoffMatch = note.match(/🏁 Trả: (.*)/);
     const messageMatch = note.match(/💬 Lời nhắn:([\s\S]*)/); 
@@ -136,7 +143,7 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
     });
 
     return result;
-  }, [currentBookings, sortOrder, searchTerm, statusFilter]);
+  }, [currentBookings, searchTerm, statusFilter]);
 
   if (!isOpen || !trip) return null;
 
@@ -200,7 +207,7 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
       const now = new Date();
       const departureTime = new Date(currentTrip.departure_time);
 
-      if (departureTime < now || currentTrip.status === TripStatus.COMPLETED || currentTrip.status === TripStatus.CANCELLED) {
+      if (!isAdmin && (departureTime < now || currentTrip.status === TripStatus.COMPLETED || currentTrip.status === TripStatus.CANCELLED)) {
         showAlert({ title: 'Thao tác không hợp lệ', message: 'Không thể thay đổi trạng thái đơn cho chuyến xe đã kết thúc hoặc đã hủy.', variant: 'warning', confirmText: 'Đã hiểu' });
         return;
       }
@@ -273,11 +280,21 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
     });
   };
 
+  const handleQuickUpdateStatus = async (newStatus: TripStatus) => {
+      setActionLoadingTripStatus(true);
+      try {
+          const { error } = await supabase.from('trips').update({ status: newStatus }).eq('id', trip.id);
+          if (error) throw error;
+          onRefresh();
+      } catch (err: any) {
+          showAlert({ title: 'Lỗi', message: err.message, variant: 'danger' });
+      } finally {
+          setActionLoadingTripStatus(false);
+      }
+  };
+
   const SortHeader = ({ label, width, textAlign = 'text-left' }: { label: string, width?: string, textAlign?: string }) => (
-    <th 
-      style={{ width }} 
-      className={`px-4 py-3 text-[9px] font-bold text-slate-400 ${textAlign}`}
-    >
+    <th style={{ width }} className={`px-4 py-3 text-[9px] font-bold text-slate-400 ${textAlign}`}>
       {label}
     </th>
   );
@@ -285,102 +302,130 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
       <div className="relative w-full max-w-[1400px] h-[95vh] animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
-        <div 
-            ref={modalRef} 
-            className="bg-white w-full h-full rounded-[32px] md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col border border-white/20"
-        >
-            <div className="flex-1 flex flex-col overflow-y-auto lg:overflow-hidden custom-scrollbar">
+        <div ref={modalRef} className="bg-white w-full h-full rounded-[32px] md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col border border-white/20">
+            <div className="flex-1 flex flex-col overflow-y-auto lg:overflow-hidden custom-scrollbar relative">
             
             <div className="shrink-0 lg:h-[40%] flex flex-col p-4 bg-gradient-to-r from-emerald-50/40 to-indigo-50/30 border-b border-slate-100">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-auto lg:h-full lg:overflow-y-auto custom-scrollbar">
                 
-                <div className={`lg:col-span-4 bg-white p-5 rounded-[32px] border shadow-sm flex flex-col justify-between group overflow-hidden relative ${trip.status === TripStatus.ON_TRIP ? 'border-blue-200 bg-blue-50/20' : trip.status === TripStatus.URGENT ? 'border-rose-400 bg-rose-50/20' : trip.status === TripStatus.PREPARING ? 'border-amber-300 bg-amber-50/10' : 'border-emerald-100'}`}>
+                {/* Trip Info Card */}
+                <div className={`lg:col-span-4 bg-white p-5 rounded-[32px] border shadow-sm flex flex-col justify-between group overflow-hidden relative ${
+                    trip.status === TripStatus.ON_TRIP ? 'border-blue-200 bg-blue-50/20' : trip.status === TripStatus.URGENT ? 'border-rose-400 bg-rose-50/20' : trip.status === TripStatus.PREPARING ? 'border-amber-300 bg-amber-50/10' : 'border-emerald-100'}`}>
                     
-                    <div>
-                        <div className="flex items-center justify-between mb-3">
-                            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[9px] font-bold z-10 ${statusInfo.style}`}>
-                                {trip.status === TripStatus.ON_TRIP ? <Play size={10} className="animate-pulse" /> : <StatusIcon size={10} />}
-                                {statusInfo.label}
+                        <div>
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-1.5 z-20">
+                                    {actionLoadingTripStatus ? (
+                                        <Loader2 className="animate-spin text-slate-400" size={14} />
+                                    ) : (
+                                        <TripStatusSelector 
+                                            value={trip.status} 
+                                            onChange={handleQuickUpdateStatus}
+                                            disabled={!isAdmin && !isTripOwner}
+                                            arrivalTime={trip.arrival_time}
+                                        />
+                                    )}
+                                    {/* Nút EDIT: Gọi callback onEdit */}
+                                    {isAdmin && (
+                                        <button 
+                                            onClick={() => onEdit(trip)}
+                                            className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-500 hover:bg-indigo-600 hover:text-white transition-all shadow-sm group/btn"
+                                            title="Sửa thông tin"
+                                        >
+                                            <Edit3 size={11} className="group-hover/btn:scale-110 transition-transform" />
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-col items-center">
+                                    <span className="text-[8px] font-bold text-slate-500">
+                                    {trip.is_request ? (trip.seats === 7 ? 'Bao xe' : `${trip.seats} ghế`) + ` (${activeBookingsCount} tài xế)` : `Còn ${availableSeatsCount}/${trip.seats} ghế trống`}
+                                    </span>
+                                    <div className="w-16 bg-slate-100 h-1 rounded-full overflow-hidden mt-0.5">
+                                    <div className={`h-full rounded-full transition-all duration-500 ${fillBarColor}`} style={{ width: `${trip.is_request ? 100 : fillPercent}%` }}></div>
+                                    </div>
+                                </div>
+
+                                <p className={`text-sm font-bold tracking-tight ${trip.is_request ? 'text-orange-600' : 'text-indigo-600'}`}>
+                                    {trip.price === 0 ? 'Thoả thuận' : new Intl.NumberFormat('vi-VN').format(trip.price) + 'đ'}
+                                </p>
                             </div>
 
-                            <div className="flex flex-col items-center">
-                                <span className="text-[8px] font-bold text-slate-500">
-                                {trip.is_request ? (trip.seats === 7 ? 'Bao xe' : `${trip.seats} ghế`) + ` (${activeBookingsCount} xe nhận)` : `Còn ${availableSeatsCount}/${trip.seats} ghế trống`}
-                                </span>
-                                <div className="w-16 bg-slate-100 h-1 rounded-full overflow-hidden mt-0.5">
-                                <div className={`h-full rounded-full transition-all duration-500 ${fillBarColor}`} style={{ width: `${trip.is_request ? 100 : fillPercent}%` }}></div>
+                            <div className="flex flex-col gap-2.5 items-start mb-3 min-h-[30px] justify-center">
+                                <div className="flex items-center gap-2.5 w-full">
+                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-lg shrink-0 ${trip.is_request ? 'bg-orange-500 shadow-orange-100' : 'bg-indigo-600 shadow-indigo-100'}`}>
+                                    {trip.driver_name?.charAt(0) || 'U'}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="font-bold text-slate-900 text-[13px] leading-tight truncate">{trip.driver_name}</h4>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex items-center gap-1.5 min-w-0 flex-wrap pl-0.5">
+                                    <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[8px] font-bold truncate ${trip.is_request ? 'bg-orange-50 text-orange-600 border-orange-100' : vehicleConfig.style}`}>
+                                        <VIcon size={9} /> {trip.is_request ? (trip.vehicle_info || 'Cần tìm xe') : vehicleModel}
+                                    </span>
+                                    {!trip.is_request && licensePlate && (
+                                        <div className="inline-flex items-center bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm self-start whitespace-nowrap">
+                                            <CopyableCode code={licensePlate} className="text-[9px] font-black uppercase tracking-wider" label={licensePlate} />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
-                            <p className={`text-sm font-bold tracking-tight ${trip.is_request ? 'text-orange-600' : 'text-indigo-600'}`}>
-                                {trip.price === 0 ? 'Thoả thuận' : new Intl.NumberFormat('vi-VN').format(trip.price) + 'đ'}
-                            </p>
+                            <div className="space-y-2.5 mb-3 relative">
+                                <div className="absolute left-[7px] top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-indigo-100/70 via-slate-100/70 to-emerald-100/70"></div> 
+                                <div className="flex items-center gap-3 relative z-10">
+                                    <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-indigo-100/70 border-indigo-200/50 shadow-indigo-200/50">
+                                    <div className="w-2 h-2 rounded-full shadow-inner bg-indigo-600"></div>
+                                    </div>
+                                    <div className="flex-1">
+                                    <p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.origin_name}</p>
+                                    <div className="flex items-center gap-1.5 mt-1">
+                                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-100">
+                                        <Clock size={8} /> <span className="text-[9px] font-black">{depTime}</span>
+                                        </div>
+                                        <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
+                                        <Calendar size={8} /> <span className="text-[9px] font-bold">{depDate}</span>
+                                        </div>
+                                    </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 relative z-10">
+                                    <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-emerald-100/70 border-emerald-200/50 shadow-emerald-200/50">
+                                    <div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div>
+                                    </div>
+                                    <div className="flex-1">
+                                    <p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.dest_name}</p>
+                                    <div className="flex items-center gap-1.5 mt-1">
+                                        <div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-md border border-emerald-100 shadow-sm">
+                                        <Clock size={8} /> <span className="text-[9px] font-black">{arrTime}</span>
+                                        </div>
+                                        <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
+                                        <Calendar size={8} /> <span className="text-[9px] font-bold">{arrDate}</span>
+                                        </div>
+                                    </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="flex flex-col gap-2.5 items-start mb-3 min-h-[30px] justify-center">
-                            <div className="flex items-center gap-2.5 w-full">
-                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-lg shrink-0 ${trip.is_request ? 'bg-orange-500 shadow-orange-100' : 'bg-indigo-600 shadow-indigo-100'}`}>
-                                {trip.driver_name?.charAt(0) || 'U'}
-                                </div>
-                                <h4 className="font-bold text-slate-900 text-[13px] leading-tight truncate flex-1">{trip.driver_name}</h4>
-                            </div>
-                            
-                            <div className="flex items-center gap-1.5 min-w-0 flex-wrap pl-0.5">
-                                <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[8px] font-bold truncate ${trip.is_request ? 'bg-orange-50 text-orange-600 border-orange-100' : vehicleConfig.style}`}>
-                                    <VIcon size={9} /> {trip.is_request ? (trip.vehicle_info || 'Cần tìm xe') : vehicleModel}
-                                </span>
-                                {!trip.is_request && licensePlate && (
-                                    <div className="inline-flex items-center bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm self-start whitespace-nowrap">
-                                        <CopyableCode code={licensePlate} className="text-[9px] font-black uppercase tracking-wider" label={licensePlate} />
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="space-y-2.5 mb-3 relative">
-                            <div className="absolute left-[7px] top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-indigo-100/70 via-slate-100/70 to-emerald-100/70"></div> 
-                            
-                            <div className="flex items-center gap-3 relative z-10">
-                                <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-indigo-100/70 border-indigo-200/50 shadow-indigo-200/50">
-                                <div className="w-2 h-2 rounded-full shadow-inner bg-indigo-600"></div>
-                                </div>
-                                <div className="flex-1">
-                                <p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.origin_name}</p>
-                                <div className="flex items-center gap-1.5 mt-1">
-                                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-100">
-                                    <Clock size={8} /> <span className="text-[9px] font-black">{depTime}</span>
-                                    </div>
-                                    <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
-                                    <Calendar size={8} /> <span className="text-[9px] font-bold">{depDate}</span>
-                                    </div>
-                                </div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3 relative z-10">
-                                <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-emerald-100/70 border-emerald-200/50 shadow-emerald-200/50">
-                                <div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div>
-                                </div>
-                                <div className="flex-1">
-                                <p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.dest_name}</p>
-                                <div className="flex items-center gap-1.5 mt-1">
-                                    <div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-md border border-emerald-100 shadow-sm">
-                                    <Clock size={8} /> <span className="text-[9px] font-black">{arrTime}</span>
-                                    </div>
-                                    <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
-                                    <Calendar size={8} /> <span className="text-[9px] font-bold">{arrDate}</span>
-                                    </div>
-                                </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-auto pt-3 border-t border-slate-100 grid grid-cols-2 items-center">
+                    <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-1">
                         <div className="flex justify-start">
                             <div className="inline-flex items-center bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md border border-rose-100 shadow-sm">
                             <CopyableCode code={tripCode} className="text-[9px] font-black" label={tripCode} />
                             </div>
                         </div>
+
+                        {trip.driver_phone && (
+                            <a href={`tel:${trip.driver_phone}`} className="flex items-center gap-1.5 group">
+                                <div className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 shadow-sm group-hover:scale-110 transition-transform">
+                                    <Phone size={10} />
+                                </div>
+                                <span className="text-[10px] font-bold text-indigo-600 group-hover:text-indigo-700">{trip.driver_phone.replace(/^(?:\+84|84)/, '0')}</span>
+                            </a>
+                        )}
+
                         <div className="flex justify-end items-center gap-1 text-[9px] font-bold text-slate-400">
                             <Clock size={10} className="shrink-0" />
                             <span>{createdAtTime} {createdAtDay}</span>
@@ -397,15 +442,15 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
                 </div>
             </div>
 
-            <div className="shrink-0 lg:flex-1 flex flex-col bg-white overflow-hidden">
+            <div className="shrink-0 lg:flex-1 flex flex-col bg-white overflow-hidden pb-16 lg:pb-0">
                 <div className="px-4 md:px-8 py-3 border-b border-emerald-100 bg-gradient-to-r from-emerald-50/40 to-indigo-50/40 flex flex-col md:flex-row items-center justify-between gap-3 shrink-0">
                 <div className="flex items-center gap-4 w-full md:w-auto">
                     <div className="p-2 bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-100">
                     <ListChecks size={18} />
                     </div>
                     <div>
-                    <h3 className="text-sm font-bold text-slate-800 tracking-tight">{trip.is_request ? 'Danh sách xe nhận chuyến' : 'Danh sách hành khách'}</h3>
-                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">{trip.is_request ? `Có ${activeBookingsCount} xe nhận` : `Quản lý duyệt đơn (${filteredAndSortedBookings.length})`}</p>
+                    <h3 className="text-sm font-bold text-slate-800 tracking-tight">{trip.is_request ? 'Danh sách tài xế nhận chuyến' : 'Danh sách hành khách'}</h3>
+                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">{trip.is_request ? `Có ${activeBookingsCount} tài xế nhận` : `Quản lý duyệt đơn (${filteredAndSortedBookings.length})`}</p>
                     </div>
                 </div>
 
@@ -470,7 +515,6 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
                             const displayDropoff = dropoff || trip.dest_name;
                             const personName = booking.profiles?.full_name || (trip.is_request ? 'Tài xế' : 'Khách vãng lai');
                             const personLabel = trip.is_request ? 'Tài xế nhận' : 'Khách đặt';
-                            const displayPhone = booking.passenger_phone ? booking.passenger_phone.replace(/^(?:\+84|84)/, '0') : 'N/A';
                             
                             const createdAt = new Date(booking.created_at);
                             const createdAtTime = createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
@@ -484,15 +528,24 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
                             <div key={booking.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative flex flex-col justify-between h-full border-slate-100 ${isFinalStatus ? 'opacity-80' : ''}`}>
                                 <div>
                                     <div className="flex items-center justify-between mb-3">
-                                    <div onClick={(e) => e.stopPropagation()} className="z-20">
+                                    <div className="flex items-center gap-1 z-20" onClick={(e) => e.stopPropagation()}>
                                         {isLoading ? (
                                         <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100 w-28"><Loader2 className="animate-spin text-indigo-500" size={12} /></div>
                                         ) : (
                                         <BookingStatusSelector 
                                             value={booking.status} 
                                             onChange={(newStatus) => handleUpdateBookingStatus(booking.id, newStatus)} 
-                                            disabled={trip.status === TripStatus.COMPLETED || trip.status === TripStatus.CANCELLED}
+                                            disabled={!isAdmin && !isTripOwner && (trip.status === TripStatus.COMPLETED || trip.status === TripStatus.CANCELLED)}
                                         />
+                                        )}
+                                        {(isAdmin || isTripOwner || (profile?.role === 'user' && booking.passenger_id === profile?.id && booking.status === 'PENDING')) && (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteBooking(booking.id, booking.seats_booked, booking.status); }}
+                                                className="w-6 h-6 flex items-center justify-center bg-rose-50 text-rose-600 rounded-lg border border-rose-100 hover:bg-rose-100 transition-colors"
+                                                title="Xoá đơn hàng"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
                                         )}
                                     </div>
 
@@ -560,32 +613,23 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
                                     </div>
                                 </div>
 
-                                <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between">
-                                    <div className="flex flex-col gap-0.5">
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-[8px] font-bold text-slate-400 uppercase">Mã đơn</span>
-                                            <CopyableCode code={bookingCode} className="text-[9px] font-black text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" />
-                                        </div>
-                                        <div className="flex items-center gap-1 text-[8px] font-bold text-slate-400">
-                                            <Clock size={8} /> {createdAtTime} {createdAtDay}
-                                        </div>
+                                {/* Footer hiển thị thông tin Booking */}
+                                <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-1">
+                                    <div className="inline-flex items-center bg-cyan-50 text-cyan-700 px-2 py-1 rounded-lg border border-cyan-100 shadow-sm">
+                                        <CopyableCode code={bookingCode} className="text-[9px] font-black uppercase tracking-wider" label={bookingCode} />
                                     </div>
-                                    
-                                    <div className="flex gap-2">
-                                        {booking.passenger_phone && (
-                                            <a href={`tel:${booking.passenger_phone}`} onClick={(e) => e.stopPropagation()} className="p-2 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-colors">
-                                                <Phone size={14} />
-                                            </a>
-                                        )}
-                                        {(isAdmin || (isDriver && isTripOwner) || (profile?.role === 'user' && booking.passenger_id === profile?.id && booking.status === 'PENDING')) && (
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); handleDeleteBooking(booking.id, booking.seats_booked, booking.status); }}
-                                                className="p-2 bg-rose-50 text-rose-600 rounded-lg border border-rose-100 hover:bg-rose-100 transition-colors"
-                                                title="Xoá đơn hàng"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        )}
+
+                                    {booking.passenger_phone && (
+                                        <a href={`tel:${booking.passenger_phone}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 group">
+                                            <div className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 shadow-sm group-hover:scale-110 transition-transform">
+                                                <Phone size={10} />
+                                            </div>
+                                            <span className="text-[10px] font-bold text-indigo-600 group-hover:text-indigo-700">{booking.passenger_phone.replace(/^(?:\+84|84)/, '0')}</span>
+                                        </a>
+                                    )}
+
+                                    <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400">
+                                        <Clock size={10} /> {createdAtTime} {createdAtDay}
                                     </div>
                                 </div>
                             </div>
@@ -641,7 +685,7 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
                                                                 <BookingStatusSelector 
                                                                     value={booking.status} 
                                                                     onChange={(newStatus) => handleUpdateBookingStatus(booking.id, newStatus)} 
-                                                                    disabled={trip.status === TripStatus.COMPLETED || trip.status === TripStatus.CANCELLED}
+                                                                    disabled={!isAdmin && !isTripOwner && (trip.status === TripStatus.COMPLETED || trip.status === TripStatus.CANCELLED)}
                                                                 />
                                                             )}
                                                         </div>
@@ -667,12 +711,14 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
                                                                     <Phone size={12} />
                                                                 </a>
                                                             )}
-                                                            <button 
-                                                                onClick={(e) => { e.stopPropagation(); handleDeleteBooking(booking.id, booking.seats_booked, booking.status); }}
-                                                                className="p-1.5 bg-rose-50 text-rose-600 rounded-lg border border-rose-100 hover:bg-rose-100 transition-colors"
-                                                            >
-                                                                <Trash2 size={12} />
-                                                            </button>
+                                                            {(isAdmin || isTripOwner || (profile?.role === 'user' && booking.passenger_id === profile?.id && booking.status === 'PENDING')) && (
+                                                                <button 
+                                                                    onClick={(e) => { e.stopPropagation(); handleDeleteBooking(booking.id, booking.seats_booked, booking.status); }}
+                                                                    className="p-1.5 bg-rose-50 text-rose-600 rounded-lg border border-rose-100 hover:bg-rose-100 transition-colors"
+                                                                >
+                                                                    <Trash2 size={12} />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -695,6 +741,26 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
 
             </div>
             </div>
+
+            {/* FIXED FOOTER SECTION */}
+            <div className="px-4 py-3 border-t border-slate-100 bg-white flex flex-wrap items-center justify-center gap-3 shrink-0 z-20 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]">
+                <div className="flex items-center gap-1.5 bg-amber-50 text-amber-600 px-2.5 py-1 rounded-lg border border-amber-100 shadow-sm" title={trip.is_request ? "Tài xế đang chào" : "Đơn hàng chờ duyệt"}>
+                    <Clock size={12} /> <span className="text-[10px] font-bold">{trip.is_request ? 'Xe chào: ' : 'Chờ duyệt: '}{bookingStats.pending}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-lg border border-emerald-100 shadow-sm" title={trip.is_request ? "Đã nhận chuyến" : "Đã xác nhận"}>
+                    <CheckCircle2 size={12} /> <span className="text-[10px] font-bold">{trip.is_request ? 'Đã nhận: ' : 'Xác nhận: '}{bookingStats.confirmed}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-cyan-50 text-cyan-600 px-2.5 py-1 rounded-lg border border-cyan-100 shadow-sm" title="Đã đón khách">
+                    <MapPin size={12} /> <span className="text-[10px] font-bold">Đã đón: {bookingStats.pickedUp}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg border border-blue-100 shadow-sm" title="Khách đang trên xe">
+                    <Play size={12} /> <span className="text-[10px] font-bold">Đang đi: {bookingStats.onBoard}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-rose-50 text-rose-600 px-2.5 py-1 rounded-lg border border-rose-100 shadow-sm" title="Đơn đã huỷ">
+                    <XCircle size={12} /> <span className="text-[10px] font-bold">Huỷ: {bookingStats.cancelled}</span>
+                </div>
+            </div>
+
         </div>
         <button 
           onClick={onClose} 
