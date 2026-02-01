@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   X, HelpCircle, Clock, Play, CheckCircle2, XCircle, AlertCircle, Timer,
   Search, Navigation, Zap, Car, Ticket, Shield, Users,
@@ -156,7 +155,7 @@ const UserContent = () => (
     <GuideSection title="Dành cho Hành khách" description="Tìm kiếm chuyến đi phù hợp hoặc đăng tin tìm xe nhanh chóng." icon={Users} borderColor="border-sky-500">
       <Step number={1} title="Tìm kiếm & Lọc chuyến xe">
         <p>Tại tab <b className="text-emerald-600">"Chuyến xe có sẵn"</b>, bạn có thể tìm các chuyến do tài xế đăng. Thanh tìm kiếm hỗ trợ tìm theo địa điểm (cả không dấu), mã chuyến, tên tài xế.</p>
-        <p>Sử dụng các bộ lọc <b className="text-slate-700">Trạng thái, Loại xe, Điểm đi, Điểm đến</b> để thu hẹp kết quả. Nút <b className="text-slate-700">Sắp xếp</b> giúp bạn ưu tiên chuyến xe theo thời gian hoặc giá cả.</p>
+        <p>Sử dụng các bộ lọc <b className="text-slate-700">Trạng thái, Điểm đi, Điểm đến</b> để thu hẹp kết quả. Nút <b className="text-slate-700">Sắp xếp</b> giúp bạn ưu tiên chuyến xe theo thời gian hoặc giá cả.</p>
       </Step>
       <Step number={2} title="Đặt chỗ">
         <p>Sau khi chọn chuyến ưng ý, nhấn nút <b className="text-blue-600">"Đặt chỗ ngay"</b>. Một cửa sổ sẽ hiện ra để bạn điền thông tin chi tiết:</p>
@@ -173,7 +172,7 @@ const UserContent = () => (
         <p>Các tài xế có lộ trình tương tự sẽ thấy và liên hệ với bạn.</p>
       </Step>
        <Step number={4} title="Quản lý & Theo dõi">
-        <p>Tất cả các chuyến bạn đã đặt hoặc các yêu cầu bạn đã đăng được quản lý tại tab <b className="text-indigo-600">"Yêu cầu"</b>. Tại đây bạn có thể theo dõi trạng thái đơn hàng (đã được duyệt hay chưa) và có thể tự <b className="text-rose-600">hủy đơn</b> nếu cần.</p>
+        <p>Tất cả các chuyến bạn đã đặt hoặc các yêu cầu bạn đã đăng được quản lý tại tab <b className="text-indigo-600">"Yêu cầu"</b> (Menu &gt; Yêu cầu). Tại đây bạn có thể theo dõi trạng thái đơn hàng (đã được duyệt hay chưa) và có thể tự <b className="text-rose-600">hủy đơn</b> nếu cần.</p>
       </Step>
     </GuideSection>
     <GuideSection title="Cấp độ thành viên & Ưu đãi" description="Tích lũy chuyến đi để nâng hạng và nhận các đặc quyền hấp dẫn." icon={Gem} borderColor="border-sky-500">
@@ -192,12 +191,12 @@ const UserContent = () => (
 const DriverContent = () => (
     <div className="space-y-10">
     <GuideSection title="Dành cho Tài xế" description="Tối ưu hóa thu nhập bằng cách quản lý chuyến đi và nhận khách hiệu quả." icon={Car} borderColor="border-emerald-500">
-      <Step number={1} title="Quản lý đội xe">
-        <p>Đây là bước đầu tiên và quan trọng nhất. Truy cập <b className="text-slate-700">Hồ sơ &gt; Quản lý đội xe</b> để thêm thông tin các phương tiện bạn sở hữu.</p>
+      <Step number={1} title="Quản lý đội xe (Bắt buộc)">
+        <p>Đây là bước đầu tiên và quan trọng nhất. Truy cập <b className="text-slate-700">Menu &gt; Hồ sơ &gt; Quản lý đội xe</b> để thêm thông tin các phương tiện bạn sở hữu.</p>
         <p>Mỗi xe cần có <b className="text-slate-800">Loại xe, Biển kiểm soát</b> và <b className="text-rose-600">bắt buộc phải có hình ảnh</b>. Hình ảnh sẽ được tự động cắt vuông và nén để tối ưu hiển thị.</p>
       </Step>
       <Step number={2} title="Đăng chuyến mới">
-        <p>Vào tab <b className="text-slate-700">"Đăng chuyến"</b>, chọn chế độ <b className="text-indigo-600">"Tôi có xe trống"</b>. Điền đầy đủ thông tin và chọn xe từ danh sách đã thêm ở bước 1.</p>
+        <p>Nhấn nút <b className="text-slate-700">"Đăng tin"</b>, chọn chế độ <b className="text-indigo-600">"Có xe trống"</b>. Điền đầy đủ thông tin và chọn xe từ danh sách đã thêm ở bước 1.</p>
         <p>Tính năng <b className="text-slate-700">"Lịch đi định kỳ"</b> giúp bạn nhanh chóng tạo nhiều chuyến cho các tuyến cố định trong tuần mà không cần nhập lại.</p>
       </Step>
       <Step number={3} title="Nhận yêu cầu từ khách (2 cách)">
@@ -207,7 +206,7 @@ const DriverContent = () => (
     </GuideSection>
     <GuideSection title="Quản lý Vận hành" description="Xử lý đơn hàng, theo dõi chuyến đi và các logic tự động của hệ thống." icon={ListChecks} borderColor="border-emerald-500">
        <Step number="✅" title="Duyệt đơn & Logic trừ ghế">
-          <p>Tất cả các yêu cầu đặt chỗ hoặc yêu cầu nhận chuyến của bạn đều tập trung tại <b className="text-slate-700">Quản lý &gt; Quản lý Yêu cầu</b>. Bạn có quyền <b className="text-emerald-600">Xác nhận</b> hoặc <b className="text-rose-600">Hủy</b> đơn hàng.</p>
+          <p>Tất cả các yêu cầu đặt chỗ hoặc yêu cầu nhận chuyến của bạn đều tập trung tại tab <b className="text-slate-700">"Yêu cầu"</b>. Bạn có quyền <b className="text-emerald-600">Xác nhận</b> hoặc <b className="text-rose-600">Hủy</b> đơn hàng.</p>
           <p className="font-bold text-emerald-700">Logic quan trọng: Khi bạn "Xác nhận" một đơn, số ghế trống trên chuyến xe tương ứng sẽ tự động bị trừ đi. Nếu số ghế về 0, chuyến xe sẽ chuyển sang trạng thái "Đầy chỗ". Ngược lại, khi bạn "Hủy" một đơn đã xác nhận, số ghế sẽ được hoàn trả.</p>
        </Step>
        <Step number="⚙️" title="Vòng đời chuyến xe tự động">
@@ -226,20 +225,20 @@ const StaffContent = ({ role }: { role: 'manager' | 'admin' }) => (
     <div className="space-y-10">
     <GuideSection title={role === 'admin' ? "Dành cho Quản trị viên" : "Dành cho Điều phối viên"} description="Giám sát, điều phối và quản lý toàn bộ hoạt động của hệ thống." icon={LayoutDashboard} borderColor={role === 'admin' ? 'border-rose-500' : 'border-indigo-500'}>
       <Step number={1} title="Bảng điều khiển (Thống kê)">
-         <p>Cung cấp cái nhìn tổng quan về các chỉ số quan trọng: <b className="text-slate-800">Doanh thu, Chuyến xe, Yêu cầu, Tỷ lệ lấp đầy</b>. Biểu đồ giúp theo dõi tăng trưởng và hiệu quả hoạt động theo thời gian.</p>
+         <p>Truy cập <b className="text-slate-800">Menu &gt; Thống kê</b>. Cung cấp cái nhìn tổng quan về các chỉ số quan trọng: <b className="text-slate-800">Doanh thu, Chuyến xe, Đơn hàng, Hiệu suất xe</b>. Biểu đồ giúp theo dõi tăng trưởng và hiệu quả hoạt động theo thời gian.</p>
       </Step>
       <Step number={2} title="Quản lý Chuyến xe">
-         <p>Tại <b className="text-slate-800">Quản lý &gt; Quản lý Chuyến xe</b>, bạn có thể xem tất cả các chuyến xe (cả tin đăng tìm khách và tin đăng tìm xe) trong hệ thống. Bạn có quyền xem chi tiết và thay đổi trạng thái của bất kỳ chuyến nào (VD: Hủy một chuyến xe gặp sự cố).</p>
+         <p>Tại <b className="text-slate-800">Menu &gt; Chuyến xe</b>, bạn có thể xem tất cả các chuyến xe (cả tin đăng tìm khách và tin đăng tìm xe) trong hệ thống. Bạn có quyền xem chi tiết và thay đổi trạng thái của bất kỳ chuyến nào (VD: Hủy một chuyến xe gặp sự cố).</p>
       </Step>
       <Step number={3} title="Quản lý Yêu cầu">
-         <p>Đây là trung tâm quản lý tất cả các đơn hàng. Bạn có thể lọc đơn theo nhiều tiêu chí và có toàn quyền thay đổi trạng thái của bất kỳ đơn hàng nào để hỗ trợ tài xế và hành khách.</p>
-         <p>Tính năng <b className="text-indigo-600">"Đặt hộ"</b> trong cửa sổ đặt vé cho phép bạn thay mặt một thành viên đã có trong hệ thống để đặt vé, rất hữu ích khi hỗ trợ qua điện thoại.</p>
+         <p>Tab <b className="text-slate-800">"Yêu cầu"</b> là trung tâm quản lý tất cả các đơn hàng. Bạn có thể lọc đơn theo nhiều tiêu chí và có toàn quyền thay đổi trạng thái của bất kỳ đơn hàng nào để hỗ trợ tài xế và hành khách.</p>
+         <p>Tính năng <b className="text-indigo-600">"Đặt hộ"</b> & <b className="text-indigo-600">"Giao chuyến"</b> cho phép bạn thay mặt một thành viên đã có trong hệ thống để đặt vé hoặc gán một yêu cầu tìm xe cho một tài xế cụ thể, rất hữu ích khi hỗ trợ qua điện thoại.</p>
       </Step>
     </GuideSection>
     {role === 'admin' && (
       <GuideSection title="Quản trị Hệ thống (Admin)" description="Quản lý người dùng và các thiết lập cấp cao của hệ thống." icon={Shield} borderColor="border-rose-500">
           <Step number="👤" title="Quản lý người dùng">
-            <p>Tab <b className="text-rose-600">"Hệ thống"</b> là nơi quản lý toàn bộ tài khoản. Bạn có thể:</p>
+            <p>Tab <b className="text-rose-600">"Thành viên"</b> là nơi quản lý toàn bộ tài khoản. Bạn có thể:</p>
             <ul className="list-disc list-inside text-xs space-y-1 pl-2">
                 <li>Tìm kiếm và lọc người dùng theo nhiều tiêu chí.</li>
                 <li>Thay đổi <b className="text-slate-800">Quyền hạn</b> (VD: nâng cấp thành viên lên tài xế).</li>
@@ -267,6 +266,38 @@ const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose, profil
   const isDriver = userRole === 'driver';
 
   const [activeTab, setActiveTab] = useState(userRole);
+  
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const scrollbarThumbRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = () => {
+    const container = tabsContainerRef.current;
+    const thumb = scrollbarThumbRef.current;
+    if (container && thumb) {
+      if (container.scrollWidth <= container.clientWidth) {
+        thumb.style.width = '100%';
+        thumb.style.left = '0%';
+        return;
+      }
+      const scrollPercentage = container.scrollLeft / (container.scrollWidth - container.clientWidth);
+      const thumbWidth = (container.clientWidth / container.scrollWidth) * 100;
+      const thumbLeft = scrollPercentage * (100 - thumbWidth);
+
+      thumb.style.width = `${thumbWidth}%`;
+      thumb.style.left = `${thumbLeft}%`;
+    }
+  };
+
+  useEffect(() => {
+    const updateScrollbar = () => {
+        setTimeout(() => handleScroll(), 50);
+    };
+    if(isOpen) {
+      updateScrollbar();
+      window.addEventListener('resize', updateScrollbar);
+    }
+    return () => window.removeEventListener('resize', updateScrollbar);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -322,38 +353,70 @@ const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose, profil
         <div className="bg-slate-50 w-full h-full rounded-[32px] shadow-2xl overflow-hidden flex flex-col md:flex-row border border-white/20">
             {/* Sidebar */}
             <aside className="w-full md:w-64 bg-white border-r border-slate-100 p-6 flex flex-col shrink-0">
-            <div className="flex items-center gap-3 mb-8">
-                <div className="p-2.5 bg-emerald-50 rounded-xl text-emerald-600">
-                <HelpCircle size={20} />
-                </div>
-                <div>
-                <h2 className="font-bold text-slate-800">Hướng dẫn</h2>
-                <p className="text-xs text-slate-400">{showTabs ? 'Theo vai trò' : `Dành cho ${singleRoleInfo.label}`}</p>
-                </div>
-            </div>
-            {showTabs ? (
-                <nav className="flex md:flex-col gap-1.5 overflow-x-auto pb-2 md:pb-0">
-                {visibleRoles.map(role => {
-                    const { label, icon: Icon, color } = getRoleInfo(role);
-                    const isActive = activeTab === role;
-                    return (
-                    <button 
-                        key={role} 
-                        onClick={() => setActiveTab(role)}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left text-xs font-bold whitespace-nowrap ${isActive ? `bg-emerald-50 text-emerald-600 shadow-sm` : `text-slate-500 hover:bg-slate-100 hover:text-slate-800`}`}
+              <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2.5 bg-emerald-50 rounded-xl text-emerald-600">
+                  <HelpCircle size={20} />
+                  </div>
+                  <div>
+                  <h2 className="font-bold text-slate-800">Hướng dẫn</h2>
+                  <p className="text-xs text-slate-400">{showTabs ? 'Theo vai trò' : `Dành cho ${singleRoleInfo.label}`}</p>
+                  </div>
+              </div>
+
+              {showTabs ? (
+                <>
+                  {/* Desktop: Vertical List */}
+                  <nav className="hidden md:flex flex-col gap-1.5 flex-1">
+                    {visibleRoles.map(role => {
+                        const { label, icon: Icon, color } = getRoleInfo(role);
+                        const isActive = activeTab === role;
+                        return (
+                          <button 
+                              key={role} 
+                              onClick={() => setActiveTab(role)}
+                              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left text-xs font-bold whitespace-nowrap ${isActive ? `bg-emerald-50 text-emerald-600 shadow-sm` : `text-slate-500 hover:bg-slate-100 hover:text-slate-800`}`}
+                          >
+                              <Icon size={16} className={isActive ? color : 'text-slate-400'} />
+                              {label}
+                          </button>
+                        );
+                    })}
+                  </nav>
+
+                  {/* Mobile: Horizontal Pill Scroll */}
+                  <div className="md:hidden">
+                    <div 
+                      ref={tabsContainerRef} 
+                      onScroll={handleScroll} 
+                      className="flex gap-2 overflow-x-auto" 
+                      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
                     >
-                        <Icon size={16} className={isActive ? color : 'text-slate-400'} />
-                        {label}
-                    </button>
-                    );
-                })}
-                </nav>
-            ) : (
-                <div className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold bg-emerald-50 text-emerald-600 shadow-sm`}>
-                    <singleRoleInfo.icon size={16} className={singleRoleInfo.color} />
-                    {singleRoleInfo.label}
-                </div>
-            )}
+                      {visibleRoles.map(role => {
+                          const { label, icon: Icon, color } = getRoleInfo(role);
+                          const isActive = activeTab === role;
+                          return (
+                            <button 
+                              key={role} 
+                              onClick={() => setActiveTab(role)}
+                              className={`px-4 py-2.5 rounded-xl transition-all text-xs font-bold whitespace-nowrap flex items-center gap-2 border ${isActive ? `bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-200` : `bg-white text-slate-500 border-slate-200`}`}
+                            >
+                              <Icon size={14} />
+                              {label}
+                            </button>
+                          );
+                      })}
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-200 rounded-full mt-3 relative overflow-hidden">
+                      <div ref={scrollbarThumbRef} className="h-full bg-slate-800 rounded-full absolute top-0"></div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                  <div className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold bg-emerald-50 text-emerald-600 shadow-sm`}>
+                      <singleRoleInfo.icon size={16} className={singleRoleInfo.color} />
+                      {singleRoleInfo.label}
+                  </div>
+              )}
             </aside>
 
             {/* Main Content */}
