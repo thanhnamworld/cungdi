@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Clock, MapPin, Trash2, Map as MapIcon, Navigation, ExternalLink, 
@@ -275,6 +274,11 @@ const BookingsList: React.FC<BookingsListProps> = ({ bookings, trips, profile, o
     const depTime = trip ? new Date(trip.departure_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
     const depDate = trip ? new Date(trip.departure_time).toLocaleDateString('vi-VN') : '--/--';
 
+    // Logic to show Completed if trip is completed, regardless of booking status
+    const isTripCompleted = trip?.status === TripStatus.COMPLETED;
+    const isBookingActive = ['CONFIRMED', 'PICKED_UP', 'ON_BOARD'].includes(booking.status);
+    const showCompletedBadge = isTripCompleted && isBookingActive;
+
     return (
         <div key={booking.id} className="bg-white p-4 rounded-[24px] border border-slate-100 shadow-sm hover:shadow-lg transition-all mb-4 relative overflow-hidden group">
             <div className="flex justify-between items-start mb-3">
@@ -293,11 +297,15 @@ const BookingsList: React.FC<BookingsListProps> = ({ bookings, trips, profile, o
                 <div onClick={(e) => e.stopPropagation()}>
                     {actionLoading === booking.id ? (
                         <Loader2 className="animate-spin text-slate-400" size={16} />
+                    ) : showCompletedBadge ? (
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[9px] font-bold z-10 bg-emerald-50 text-emerald-600 border-emerald-100 cursor-default shadow-sm">
+                            <CheckCircle2 size={10} />
+                            <span>Hoàn thành</span>
+                        </div>
                     ) : (
                         <PassengerBookingStatusSelector 
                             value={booking.status} 
                             onChange={() => handlePassengerCancel(booking.id)} 
-                            // Fixed: Removed 'COMPLETED' from check because it's not a Booking status
                             disabled={booking.status === 'CANCELLED' || booking.status === 'EXPIRED' || booking.status === 'PICKED_UP' || booking.status === 'ON_BOARD'}
                         />
                     )}

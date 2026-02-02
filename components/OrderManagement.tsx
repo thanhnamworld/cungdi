@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   ShoppingBag, Search, CheckCircle2, XCircle, Clock, RefreshCcw, Loader2, ArrowUpDown, Navigation, Car, User, ArrowRight, Phone, DollarSign, ChevronDown, Check, X, AlertCircle, AlertTriangle, Timer, Ban, Calendar, Filter, Hash, Play, MapPin, LayoutList, LayoutGrid, Star, ClipboardList, Info, Users, Layers, MessageSquareQuote, CalendarDays, Send, History
@@ -679,6 +678,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
                   const isMyBooking = profile?.role === 'user' && order.passenger_id === profile?.id;
                   const canCancel = isMyBooking && (order.status === 'PENDING' || order.status === 'CONFIRMED');
 
+                  // --- FIX VISUAL STATUS LOGIC ---
+                  const isTripCompleted = trip?.status === TripStatus.COMPLETED;
+                  const isBookingActive = ['CONFIRMED', 'PICKED_UP', 'ON_BOARD'].includes(order.status);
+                  const showCompletedBadge = isTripCompleted && isBookingActive;
+
                   return (
                     <tr 
                       key={order.id} 
@@ -738,6 +742,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
                           <div className="w-full max-w-[130px] relative" onClick={(e) => e.stopPropagation()}>
                             {actionLoading === order.id ? (
                                 <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100"><Loader2 className="animate-spin text-indigo-500" size={12} /></div> 
+                            ) : showCompletedBadge ? (
+                                <div className="flex items-center justify-center gap-1 px-2 py-1 rounded-lg border text-[9px] font-bold bg-emerald-50 text-emerald-600 border-emerald-100 cursor-default shadow-sm w-full">
+                                    <CheckCircle2 size={10} />
+                                    <span>Hoàn thành</span>
+                                </div>
                             ) : (
                                 <BookingStatusSelector 
                                     value={order.status} 

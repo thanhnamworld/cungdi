@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Search as SearchIcon, MapPin, Calendar, Clock, User, ChevronRight, Star, LayoutGrid, CalendarDays, ChevronDown, Car, CarFront, Sparkles, Crown, DollarSign, ArrowUpDown, Filter, Check, X, History, Users, ArrowRight, AlertCircle, Timer, Zap, CheckCircle2, Play, Radio, Shield, Settings, Hash, Navigation, ClipboardList, Repeat, Send, Loader2, Map as MapIcon, Plus, Info, Ban, ListChecks, Ticket, Layers, Gem, Handshake, XCircle
 } from 'lucide-react';
@@ -448,8 +447,9 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onBook, userBookings =
             <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-indigo-100/70 border-indigo-200/50 shadow-indigo-200/50">
               <div className="w-2 h-2 rounded-full shadow-inner bg-indigo-600"></div>
             </div>
-            <div className="flex flex-col">
-              <p className="font-bold text-slate-700 text-[12px] truncate">{trip.origin_name}</p>
+            <div className="flex-1 min-w-0">
+              <label className="text-[9px] font-bold text-slate-400">Điểm đón</label>
+              <p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.origin_name}</p>
               <div className="flex items-center gap-1.5 self-start flex-wrap mt-1">
                 <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-100">
                   <Clock size={8} />
@@ -466,8 +466,9 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onBook, userBookings =
             <div className="w-4 h-4 rounded-full bg-emerald-100/70 flex items-center justify-center shrink-0 border border-emerald-200/50 shadow-lg shadow-emerald-200/50">
               <div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div>
             </div>
-            <div className="flex flex-col">
-              <p className="font-bold text-slate-700 text-[12px] truncate">{trip.dest_name}</p>
+            <div className="flex-1 min-w-0">
+              <label className="text-[9px] font-bold text-slate-400">Điểm trả</label>
+              <p className="font-bold text-slate-700 text-[12px] truncate leading-tight">{trip.dest_name}</p>
               <div className="flex items-center gap-1.5 self-start flex-wrap mt-1">
                 <div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-md border border-emerald-100 shadow-sm">
                   <Clock size={8} />

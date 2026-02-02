@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -89,6 +88,22 @@
         }
         .animate-pulse-orange {
           animation: pulse-orange 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse-emerald {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+          50% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+        }
+        .animate-pulse-emerald {
+          animation: pulse-emerald 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse-rose {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.4); }
+          50% { box-shadow: 0 0 0 10px rgba(225, 29, 72, 0); }
+        }
+        .animate-pulse-rose {
+          animation: pulse-rose 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
 
         .glass {

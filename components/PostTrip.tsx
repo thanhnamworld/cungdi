@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, MapPin, Calendar, Users, Car, CheckCircle2, Navigation, Clock, Repeat, ChevronDown, Banknote, Loader2, AlertTriangle, Info, ArrowRight, DollarSign, Check, Map as MapIcon, Timer, PlusCircle, ToggleLeft, ToggleRight, Sparkles, UserSearch, X, ListChecks, Save } from 'lucide-react';
 import { getRouteDetails } from '../services/geminiService.ts';
@@ -598,21 +597,25 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                     
                     {/* Left Column: Route & Map */}
                     <div className="space-y-3">
-                        <h3 className={`text-sm font-bold flex items-center gap-2 font-outfit tracking-tight uppercase ${postMode === 'PASSENGER' ? 'text-orange-700' : 'text-slate-700'}`}>
+                        <h3 className={`text-sm font-bold flex items-center gap-2 font-outfit tracking-tight ${postMode === 'PASSENGER' ? 'text-orange-700' : 'text-slate-700'}`}>
                         <Navigation size={16} className={postMode === 'PASSENGER' ? 'text-orange-600' : 'text-indigo-600'} /> 1. Lộ trình {postMode === 'PASSENGER' ? 'bạn đi' : ''}
                         </h3>
                         
                         <div className={`p-3 md:p-4 rounded-[24px] border shadow-sm space-y-2 relative ${postMode === 'PASSENGER' ? 'bg-white border-slate-100' : 'bg-white/80 border-white'}`}>
-                        <div className="absolute left-[23px] top-9 bottom-9 w-0.5 bg-slate-100 border-l border-dashed border-slate-200"></div>
+                        <div className={`absolute left-[23px] top-9 bottom-9 w-1 rounded-full ${postMode === 'PASSENGER' ? 'bg-gradient-to-b from-orange-200 to-rose-200' : 'bg-gradient-to-b from-blue-200 to-emerald-200'}`}></div>
                         
                         {/* Origin Input */}
                         <div className="relative" ref={originRef}>
                             <div className="flex gap-3">
-                            <div className={`mt-1 w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border transition-all ${originUri ? (postMode === 'PASSENGER' ? 'bg-orange-50 border-orange-100 text-orange-600' : 'bg-emerald-50 border-emerald-100 text-emerald-600') : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                                <Navigation size={14} />
+                            <div className={`mt-1 w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 transition-all duration-300 ${
+                                originUri 
+                                ? (postMode === 'PASSENGER' ? 'bg-orange-500 text-white shadow-lg shadow-orange-200 animate-pulse-orange' : 'bg-blue-600 text-white shadow-lg shadow-blue-200 animate-pulse-blue')
+                                : (postMode === 'PASSENGER' ? 'bg-orange-50 text-orange-600 border border-orange-100' : 'bg-blue-50 text-blue-600 border border-blue-100')
+                            }`}>
+                                <Navigation size={14} strokeWidth={2.5} />
                             </div>
                             <div className="flex-1 space-y-1">
-                                <label className="text-[10px] font-bold text-slate-400 ml-1 block uppercase tracking-wider">Điểm đón</label>
+                                <label className="text-[10px] font-bold text-slate-400 ml-1 block tracking-wider">Điểm đón</label>
                                 <input type="text" value={origin} onChange={(e) => { setOrigin(e.target.value); setOriginUri(''); setError(null); setRouteData(null); }} placeholder="Tìm địa chỉ đón..." required className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-all font-bold text-xs text-slate-800 placeholder:text-slate-400 ${postMode === 'PASSENGER' ? 'focus:ring-2 focus:ring-orange-500' : 'focus:ring-2 focus:ring-emerald-500'}`} />
                                 <input type="text" value={originDetail} onChange={(e) => setOriginDetail(e.target.value)} placeholder="Số nhà, ngõ ngách..." className="w-full px-3 py-1.5 bg-white border border-slate-100 rounded-lg outline-none text-[11px] italic text-slate-600 font-medium" />
                             </div>
@@ -629,11 +632,15 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                         {/* Destination Input */}
                         <div className="relative" ref={destRef}>
                             <div className="flex gap-3">
-                            <div className={`mt-1 w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border transition-all ${destUri ? (postMode === 'PASSENGER' ? 'bg-orange-50 border-orange-100 text-orange-600' : 'bg-emerald-50 border-emerald-100 text-emerald-600') : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                                <MapPin size={14} />
+                            <div className={`mt-1 w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 transition-all duration-300 ${
+                                destUri 
+                                ? (postMode === 'PASSENGER' ? 'bg-rose-500 text-white shadow-lg shadow-rose-200 animate-pulse-rose' : 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 animate-pulse-emerald')
+                                : (postMode === 'PASSENGER' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100')
+                            }`}>
+                                <MapPin size={14} strokeWidth={2.5} />
                             </div>
                             <div className="flex-1 space-y-1">
-                                <label className="text-[10px] font-bold text-slate-400 ml-1 block uppercase tracking-wider">Điểm trả</label>
+                                <label className="text-[10px] font-bold text-slate-400 ml-1 block tracking-wider">Điểm trả</label>
                                 <input type="text" value={destination} onChange={(e) => { setDestination(e.target.value); setDestUri(''); setError(null); setRouteData(null); }} placeholder="Tìm địa chỉ trả..." required className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-all font-bold text-xs text-slate-800 placeholder:text-slate-400 ${postMode === 'PASSENGER' ? 'focus:ring-2 focus:ring-orange-500' : 'focus:ring-2 focus:ring-emerald-500'}`} />
                                 <input type="text" value={destDetail} onChange={(e) => setDestDetail(e.target.value)} placeholder="Ghi chú điểm trả..." className="w-full px-3 py-1.5 bg-white border border-slate-100 rounded-lg outline-none text-[11px] italic text-slate-600 font-medium" />
                             </div>
@@ -656,7 +663,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                                 {analyzingRoute ? <Loader2 size={14} className="animate-spin" /> : <MapIcon size={14} />}
                                 </div>
                                 <div className="min-w-0">
-                                <p className="text-[9px] font-bold text-slate-400 uppercase">Quãng đường</p>
+                                <p className="text-[9px] font-bold text-slate-400">Quãng đường</p>
                                 <p className="text-xs font-black text-slate-800 truncate h-4 flex items-center">{routeData?.distance || '---'}</p>
                                 </div>
                             </div>
@@ -665,7 +672,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                                 {analyzingRoute ? <Loader2 size={14} className="animate-spin" /> : <Timer size={14} />}
                                 </div>
                                 <div className="min-w-0">
-                                <p className="text-[9px] font-bold text-slate-400 uppercase">Thời gian</p>
+                                <p className="text-[9px] font-bold text-slate-400">Thời gian</p>
                                 <p className="text-xs font-black text-slate-800 truncate h-4 flex items-center">{routeData?.duration || '---'}</p>
                                 </div>
                             </div>
@@ -679,7 +686,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
 
                     {/* Right Column: Time, Cost & Vehicle */}
                     <div className="space-y-3">
-                        <h3 className={`text-sm font-bold flex items-center gap-2 font-outfit tracking-tight uppercase ${postMode === 'PASSENGER' ? 'text-orange-700' : 'text-slate-700'}`}>
+                        <h3 className={`text-sm font-bold flex items-center gap-2 font-outfit tracking-tight ${postMode === 'PASSENGER' ? 'text-orange-700' : 'text-slate-700'}`}>
                         <Clock size={16} className={postMode === 'PASSENGER' ? 'text-orange-600' : 'text-indigo-600'} /> 2. Thời gian & chi phí
                         </h3>
                         
@@ -700,20 +707,20 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                             {!isRecurring ? (
                             <div className="flex gap-3">
                                 <div className="flex-1 relative" ref={datePickerRef}>
-                                    <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 uppercase tracking-wider">Ngày đi</label>
+                                    <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 tracking-wider">Ngày đi</label>
                                     <button type="button" onClick={() => setShowDatePicker(!showDatePicker)} className={`w-full flex items-center justify-between px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 shadow-sm transition-all h-[38px] ${postMode === 'PASSENGER' ? 'hover:border-orange-300' : 'hover:border-emerald-300'}`}>
                                     <span>{date}</span><Calendar size={14} className={postMode === 'PASSENGER' ? 'text-orange-500' : 'text-emerald-500'} />
                                     </button>
                                     {showDatePicker && <div className="absolute top-full left-0 z-[60] mt-2"><CustomDatePicker selectedDate={date} onSelect={setDate} onClose={() => setShowDatePicker(false)} minDate={isStaff ? undefined : minDate} /></div>}
                                 </div>
                                 <div className="w-[28%] relative" ref={timePickerRef}>
-                                    <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 uppercase tracking-wider">Giờ đi</label>
+                                    <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 tracking-wider">Giờ đi</label>
                                     <button type="button" onClick={() => setShowTimePicker(!showTimePicker)} className={`w-full flex items-center justify-between px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 shadow-sm transition-all h-[38px] ${postMode === 'PASSENGER' ? 'hover:border-orange-300' : 'hover:border-emerald-300'}`}><span>{time}</span></button>
                                     {showTimePicker && <div className="absolute top-full right-0 z-[60] mt-2"><CustomTimePicker selectedTime={time} onSelect={setTime} onClose={() => setShowTimePicker(false)} /></div>}
                                 </div>
                                 {postMode === 'DRIVER' && (
                                 <div className="w-[28%] relative" ref={arrivalTimePickerRef}>
-                                    <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 uppercase tracking-wider">Đến</label>
+                                    <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 tracking-wider">Đến</label>
                                     <button type="button" onClick={() => setShowArrivalTimePicker(!showArrivalTimePicker)} className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 shadow-sm transition-all hover:bg-white h-[38px]"><span>{arrivalTime}</span></button>
                                     {showArrivalTimePicker && <div className="absolute top-full right-0 z-[60] mt-2"><CustomTimePicker selectedTime={arrivalTime} onSelect={setArrivalTime} onClose={() => setShowArrivalTimePicker(false)} /></div>}
                                 </div>
@@ -722,7 +729,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                             ) : (
                             <>
                                 <div>
-                                    <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 uppercase tracking-wider">Lặp lại vào</label>
+                                    <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 tracking-wider">Lặp lại vào</label>
                                     <div className="grid grid-cols-7 gap-1">
                                     {DAYS_OF_WEEK.map(day => (
                                         <button key={day.value} type="button" onClick={() => toggleDay(day.value)} className={`py-2 rounded-lg text-[10px] font-bold border transition-all ${selectedDays.includes(day.value) ? (postMode === 'PASSENGER' ? 'bg-orange-600 text-white border-orange-600 shadow-md shadow-orange-100' : 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-100') : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}>{day.label}</button>
@@ -731,13 +738,13 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                                 </div>
                                 <div className="flex gap-3">
                                     <div className="flex-1 relative" ref={timePickerRef}>
-                                        <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 uppercase tracking-wider">Giờ đi</label>
+                                        <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 tracking-wider">Giờ đi</label>
                                         <button type="button" onClick={() => setShowTimePicker(!showTimePicker)} className={`w-full flex items-center justify-between px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 shadow-sm transition-all h-[38px] ${postMode === 'PASSENGER' ? 'hover:border-orange-300' : 'hover:border-emerald-300'}`}><span>{time}</span><Clock size={14} className={postMode === 'PASSENGER' ? 'text-orange-500' : 'text-emerald-500'} /></button>
                                         {showTimePicker && <div className="absolute top-full left-0 z-[60] mt-2"><CustomTimePicker selectedTime={time} onSelect={setTime} onClose={() => setShowTimePicker(false)} /></div>}
                                     </div>
                                     {postMode === 'DRIVER' && (
                                     <div className="flex-1 relative" ref={arrivalTimePickerRef}>
-                                        <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 uppercase tracking-wider">Dự kiến đến</label>
+                                        <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 tracking-wider">Dự kiến đến</label>
                                         <button type="button" onClick={() => setShowArrivalTimePicker(!showArrivalTimePicker)} className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 shadow-sm transition-all hover:bg-white h-[38px]"><span>{arrivalTime}</span><Clock size={14} className="text-slate-400" /></button>
                                         {showArrivalTimePicker && <div className="absolute top-full right-0 z-[60] mt-2"><CustomTimePicker selectedTime={arrivalTime} onSelect={setArrivalTime} onClose={() => setShowArrivalTimePicker(false)} /></div>}
                                     </div>
@@ -751,7 +758,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                         {/* Vehicle Selection (Only for Driver) */}
                         {postMode === 'DRIVER' && (
                         <div className="space-y-1" ref={vehiclePickerRef}>
-                            <label className="text-[10px] font-bold text-slate-500 ml-1 block uppercase tracking-wider">Phương tiện</label>
+                            <label className="text-[10px] font-bold text-slate-500 ml-1 block tracking-wider">Phương tiện</label>
                             <div className="relative flex items-center gap-2">
                                 <button type="button" onClick={() => setShowVehiclePicker(!showVehiclePicker)} className="w-full flex items-center justify-between px-3 py-2 bg-white/80 border border-slate-200 rounded-xl outline-none font-bold text-xs text-slate-900 transition-all hover:bg-white disabled:opacity-50 shadow-sm h-[38px]">
                                 {selectedVehicle ? (
@@ -802,7 +809,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                         
                         {/* Seats */}
                         <div className={`space-y-1 ${postMode === 'PASSENGER' ? 'pt-0' : ''}`} ref={seatsPickerRef}>
-                        <label className="text-[10px] font-bold text-slate-500 ml-1 block uppercase tracking-wider">
+                        <label className="text-[10px] font-bold text-slate-500 ml-1 block tracking-wider">
                             {postMode === 'DRIVER' ? 'Số ghế mở bán' : 'Số lượng người đi'}
                         </label>
                         <div className="relative">
@@ -844,7 +851,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                         {/* Price with Toggle for Passenger */}
                         <div className="space-y-2 pt-0.5">
                         <div className="flex justify-between items-center h-5">
-                            <label className="text-[10px] font-bold text-slate-500 ml-1 block uppercase tracking-wider">{postMode === 'DRIVER' ? 'Giá vé / ghế' : 'Ngân sách dự kiến'}</label>
+                            <label className="text-[10px] font-bold text-slate-500 ml-1 block tracking-wider">{postMode === 'DRIVER' ? 'Giá vé / ghế' : 'Ngân sách dự kiến'}</label>
                             {postMode === 'PASSENGER' ? (
                             <button 
                                 type="button"
