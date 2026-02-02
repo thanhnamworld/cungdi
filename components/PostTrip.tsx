@@ -496,7 +496,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
   const selectedVehicleConfig = getVehicleConfig(selectedVehicle?.vehicle_type || '');
   const SIcon = selectedVehicleConfig.icon;
 
-  const isBaoXe = postMode === 'PASSENGER' && seats === 7;
+  const isBaoXe = seats === 7;
   const minDate = new Date();
   minDate.setHours(0,0,0,0);
 
@@ -511,14 +511,14 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                 <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200">
                     <button 
                     disabled={!!editingTrip}
-                    className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${postMode === 'DRIVER' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`} 
+                    className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${postMode === 'DRIVER' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`} 
                     onClick={() => setPostMode('DRIVER')}
                     >
                     <Car size={14} /> {editingTrip ? 'Chuyến xe' : 'Có xe trống'}
                     </button>
                     <button 
                     disabled={!!editingTrip}
-                    className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${postMode === 'PASSENGER' ? 'bg-orange-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`} 
+                    className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${postMode === 'PASSENGER' ? 'bg-orange-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`} 
                     onClick={() => setPostMode('PASSENGER')}
                     >
                     <CheckCircle2 size={14} /> {editingTrip ? 'Yêu cầu' : 'Cần tìm xe'}
@@ -810,11 +810,11 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                         {/* Seats */}
                         <div className={`space-y-1 ${postMode === 'PASSENGER' ? 'pt-0' : ''}`} ref={seatsPickerRef}>
                         <label className="text-[10px] font-bold text-slate-500 ml-1 block tracking-wider">
-                            {postMode === 'DRIVER' ? 'Số ghế mở bán' : 'Số lượng người đi'}
+                            {postMode === 'DRIVER' ? 'Số ghế trống' : 'Số lượng người đi'}
                         </label>
                         <div className="relative">
                             <button type="button" onClick={() => setShowSeats(!showSeatsPicker)} className={`w-full flex items-center justify-between px-3 py-2 border border-slate-200 rounded-xl font-bold text-xs text-slate-900 outline-none hover:bg-white transition-all shadow-sm h-[38px] ${postMode === 'PASSENGER' ? 'bg-white' : 'bg-white/80'}`}>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-center gap-2">
                                 <div className={`w-1.5 h-1.5 rounded-full ${getSeatDotColor(seats)}`}></div>
                                 <span>{isBaoXe ? 'Bao xe' : `${seats} ${postMode === 'DRIVER' ? 'ghế' : 'người'}`}</span>
                             </div>
@@ -822,27 +822,16 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                             </button>
                             {showSeatsPicker && (
                             <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white border border-slate-100 rounded-xl shadow-2xl p-1 grid grid-cols-4 gap-1 animate-in fade-in zoom-in-95 duration-200">
-                                {postMode === 'DRIVER' ? (
-                                [1, 2, 3, 4, 5, 6, 7, 8].map(s => (
-                                    <button key={s} type="button" onClick={() => { setSeats(s); setShowSeats(false); }} className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all ${seats === s ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'hover:bg-slate-50 text-slate-600'}`}>
+                                {[1, 2, 3, 4, 5, 6].map(s => (
+                                    <button key={s} type="button" onClick={() => { setSeats(s); setShowSeats(false); }} className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all ${seats === s ? (postMode === 'DRIVER' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-orange-50 text-orange-600 border-orange-100') : 'hover:bg-slate-50 text-slate-600'}`}>
                                     <div className={`w-1.5 h-1.5 rounded-full mb-1 ${getSeatDotColor(s)}`}></div>
                                     <span className="text-[10px] font-black">{s}</span>
                                     </button>
-                                ))
-                                ) : (
-                                <>
-                                    {[1, 2, 3, 4, 5, 6].map(s => (
-                                    <button key={s} type="button" onClick={() => { setSeats(s); setShowSeats(false); }} className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all ${seats === s ? 'bg-orange-50 text-orange-600 border border-orange-100' : 'hover:bg-slate-50 text-slate-600'}`}>
-                                        <div className={`w-1.5 h-1.5 rounded-full mb-1 ${getSeatDotColor(s)}`}></div>
-                                        <span className="text-[10px] font-black">{s}</span>
-                                    </button>
-                                    ))}
-                                    <button onClick={() => { setSeats(7); setShowSeats(false); }} className={`col-span-2 flex flex-col items-center justify-center p-2 rounded-lg transition-all ${seats === 7 ? 'bg-purple-50 text-purple-600 border border-purple-100' : 'hover:bg-slate-50 text-slate-600'}`}>
+                                ))}
+                                <button type="button" onClick={() => { setSeats(7); setShowSeats(false); }} className={`col-span-2 flex flex-col items-center justify-center p-2 rounded-lg transition-all ${seats === 7 ? 'bg-purple-50 text-purple-600 border border-purple-100' : 'hover:bg-slate-50 text-slate-600'}`}>
                                     <div className={`w-1.5 h-1.5 rounded-full mb-1 bg-purple-500`}></div>
                                     <span className="text-[10px] font-black">Bao xe</span>
-                                    </button>
-                                </>
-                                )}
+                                </button>
                             </div>
                             )}
                         </div>
@@ -856,10 +845,10 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                             <button 
                                 type="button"
                                 onClick={() => setIsNegotiable(!isNegotiable)}
-                                className={`flex items-center gap-2 px-2 py-0.5 rounded-full transition-all ${isNegotiable ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-500'}`}
+                                className="flex items-center gap-2 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200/60 transition-all hover:bg-slate-200/50"
                             >
-                                <span className="text-[9px] font-bold">Giá thoả thuận</span>
-                                {isNegotiable ? <ToggleRight size={18} className="text-orange-600 fill-orange-600" /> : <ToggleLeft size={18} />}
+                                <span className={`text-[9px] font-bold ${isNegotiable ? 'text-orange-600' : 'text-slate-600'}`}>Giá thoả thuận</span>
+                                {isNegotiable ? <ToggleRight size={18} className="text-orange-500 fill-orange-500/20" /> : <ToggleLeft size={18} className="text-slate-400" />}
                             </button>
                             ) : (
                             <div className="flex flex-wrap gap-1">
