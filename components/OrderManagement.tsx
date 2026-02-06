@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
-  ShoppingBag, Search, CheckCircle2, XCircle, Clock, RefreshCcw, Loader2, ArrowUpDown, Navigation, Car, User, ArrowRight, Phone, DollarSign, ChevronDown, Check, X, AlertCircle, AlertTriangle, Timer, Ban, Calendar, Filter, Hash, Play, MapPin, LayoutList, LayoutGrid, Star, ClipboardList, Info, Users, Layers, MessageSquareQuote, CalendarDays, Send, History
+  ShoppingBag, Search, CheckCircle2, XCircle, Clock, RefreshCcw, Loader2, ArrowUpDown, Navigation, Car, User, ArrowRight, Phone, DollarSign, ChevronDown, Check, X, AlertCircle, AlertTriangle, Timer, Ban, Calendar, Filter, Hash, Play, MapPin, LayoutList, LayoutGrid, Star, ClipboardList, Info, Users, Layers, MessageSquareQuote, CalendarDays, Send, History, Trash2
 } from 'lucide-react';
 import { Booking, Profile, Trip, TripStatus } from '../types';
 import { supabase } from '../lib/supabase';
@@ -213,7 +214,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
       if (requestTypeFilter === 'ACCEPTANCE' && !isRequest) return false;
 
       const bookingCode = `S${order.id.substring(0, 5).toUpperCase()}`;
-      const tripCode = trip?.trip_code || (trip?.id ? `T${trip.id.substring(0, 5).toUpperCase()}` : '');
+      // Update: Logic ID Chuyến xe bắt đầu bằng X
+      const tripCode = trip?.trip_code || (trip?.id ? `X${trip.id.substring(0, 5).toUpperCase()}` : '');
       const passengerName = order.profiles?.full_name || '';
       const driverName = trip?.driver_profile?.full_name || '';
       const route = `${trip?.origin_name} ${trip?.dest_name}`;
@@ -385,9 +387,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
     const bookingCode = `S${order.id.substring(0, 5).toUpperCase()}`;
     const isFinalStatus = order.status === 'EXPIRED' || order.status === 'CANCELLED';
     
-    const isOngoing = trip?.status === TripStatus.ON_TRIP;
-    const isUrgent = trip?.status === TripStatus.URGENT;
-    const isPreparing = trip?.status === TripStatus.PREPARING;
     const isTripCompleted = trip?.status === TripStatus.COMPLETED; 
 
     const personName = isRequest ? (order.profiles?.full_name || 'Tài xế nhận') : (order.profiles?.full_name || 'Khách vãng lai');
@@ -397,400 +396,249 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ profile, trips, onRef
     const depDate = trip?.departure_time ? new Date(trip.departure_time).toLocaleDateString('vi-VN') : '--/--/----';
     const arrTime = trip?.arrival_time ? new Date(trip.arrival_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
     const arrDate = trip?.arrival_time ? new Date(trip.arrival_time).toLocaleDateString('vi-VN') : '--/--/----';
-
-    const createdAtTime = order.created_at ? new Date(order.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-    const createdAtDay = order.created_at ? new Date(order.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--/--';
-
-    const priceColor = isRequest ? 'text-indigo-600' : 'text-orange-600';
-    const progressBarColor = isRequest ? 'bg-indigo-500' : 'bg-orange-500';
-    const seatLabel = isRequest ? 'Nhận chuyến' : `Đặt ${order.seats_booked}/${trip?.seats} ghế`;
-
-    const { pickup, dropoff } = extractLocations(order.note);
-    const displayPickup = pickup || trip?.origin_name;
-    const displayDropoff = dropoff || trip?.dest_name;
-
-    const isBookingActive = ['CONFIRMED', 'PICKED_UP', 'ON_BOARD'].includes(order.status);
-    const showCompletedBadge = isTripCompleted && isBookingActive;
-
-    const canManage = profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'driver';
-    const isMyBooking = profile?.role === 'user' && order.passenger_id === profile?.id;
-    const canCancel = isMyBooking && (order.status === 'PENDING' || order.status === 'CONFIRMED');
-    
-    const displayPhone = order.passenger_phone ? order.passenger_phone.replace(/^(?:\+84|84)/, '0') : 'N/A';
+    const tripCode = trip?.trip_code || (trip?.id ? `T${trip.id.substring(0, 5).toUpperCase()}` : '---');
 
     return (
-      <div key={order.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative flex flex-col justify-between ${isOngoing ? 'border-blue-200 bg-blue-50/20' : isUrgent ? 'border-rose-400 bg-rose-50/20' : isPreparing ? 'border-amber-300 bg-amber-50/10' : 'border-slate-100'} ${isFinalStatus || isTripCompleted ? 'opacity-90' : ''}`} onClick={() => onViewTripDetails(trip)}>
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <div onClick={(e) => e.stopPropagation()} className="z-20">
-              {actionLoading === order.id ? (
-                <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100 w-28"><Loader2 className="animate-spin text-indigo-500" size={12} /></div>
-              ) : (
-                showCompletedBadge ? (
-                    <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[9px] font-bold bg-emerald-50 text-emerald-600 border-emerald-100 cursor-default shadow-sm">
-                        <CheckCircle2 size={10} /> Hoàn thành
+      <div key={order.id} className={`bg-white p-4 rounded-[24px] border shadow-sm hover:shadow-lg transition-all mb-4 relative overflow-hidden group ${isFinalStatus ? 'opacity-70' : ''}`}>
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 ${isRequest ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>
+               {isRequest ? <Car size={20} /> : <User size={20} />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-800">{personName}</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-bold border border-slate-200">{personLabel}</span>
+              </div>
+              <div className="flex items-center gap-2 mt-0.5">
+                 <span className="text-[10px] font-bold text-slate-500">#{bookingCode}</span>
+                 <span className="text-[10px] text-slate-400">• {tripCode}</span>
+              </div>
+            </div>
+          </div>
+          <div onClick={(e) => e.stopPropagation()}>
+             {actionLoading === order.id ? (
+                <Loader2 className="animate-spin text-slate-400" size={16} />
+             ) : (
+                <BookingStatusSelector 
+                   value={order.status} 
+                   onChange={(newStatus) => handleUpdateStatus(order.id, newStatus)}
+                   disabled={isTripCompleted || isFinalStatus} 
+                />
+             )}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 mb-3 relative pl-3">
+            <div className="absolute left-[5px] top-1.5 bottom-1.5 w-0.5 bg-slate-100"></div>
+            <div className="flex items-start gap-3 relative z-10">
+                <div className="w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm bg-indigo-500 mt-0.5 shrink-0"></div>
+                <div>
+                    <p className="text-[11px] font-bold text-slate-700 leading-tight">{extractLocations(order.note).pickup || trip?.origin_name}</p>
+                    <p className="text-[9px] text-slate-400 mt-0.5">{depTime} • {depDate}</p>
+                </div>
+            </div>
+            <div className="flex items-start gap-3 relative z-10">
+                <div className="w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm bg-emerald-500 mt-0.5 shrink-0"></div>
+                <div>
+                    <p className="text-[11px] font-bold text-slate-700 leading-tight">{extractLocations(order.note).dropoff || trip?.dest_name}</p>
+                    <p className="text-[9px] text-slate-400 mt-0.5">{arrTime} • {arrDate}</p>
+                </div>
+            </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-3 border-t border-slate-50">
+            <div className="flex items-center gap-3">
+                {order.passenger_phone && (
+                    <a href={`tel:${order.passenger_phone}`} className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all">
+                        <Phone size={14} />
+                    </a>
+                )}
+                {extractLocations(order.note).message && (
+                    <div className="text-[10px] text-slate-500 flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg max-w-[120px] truncate" title={extractLocations(order.note).message || ''}>
+                        <MessageSquareQuote size={12} />
+                        <span className="truncate">{extractLocations(order.note).message}</span>
                     </div>
-                ) : (
-                    <BookingStatusSelector 
-                        value={order.status} 
-                        onChange={(newStatus) => handleUpdateStatus(order.id, newStatus)} 
-                        disabled={!canManage && !canCancel}
-                    />
-                )
-              )}
+                )}
             </div>
-
-            <div className="flex flex-col items-center">
-              <span className="text-[8px] font-bold text-slate-500">{seatLabel}</span>
-              <div className="w-16 bg-slate-100 h-1 rounded-full overflow-hidden mt-0.5">
-                <div className={`h-full rounded-full transition-all duration-500 ${progressBarColor}`} style={{ width: '100%' }}></div>
-              </div>
+            <div className="text-right">
+                <p className={`text-sm font-black ${isRequest ? 'text-indigo-600' : 'text-orange-600'}`}>
+                    {new Intl.NumberFormat('vi-VN').format(order.total_price)}đ
+                </p>
+                <p className="text-[9px] font-bold text-slate-400">{order.seats_booked} ghế</p>
             </div>
-
-            <p className={`text-sm font-bold tracking-tight ${priceColor}`}>
-              {order.total_price === 0 ? 'Thoả thuận' : new Intl.NumberFormat('vi-VN').format(order.total_price) + 'đ'}
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-2.5 items-start mb-3 min-h-[30px] justify-center">
-            <div className="flex items-center gap-2.5 w-full">
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-lg shrink-0 ${isRequest ? 'bg-indigo-600 shadow-indigo-100' : 'bg-orange-600 shadow-orange-100'}`}>
-                {personName.charAt(0)}
-              </div>
-              <h4 className="font-bold text-slate-900 text-[13px] leading-tight truncate flex-1">{personName}</h4>
-            </div>
-            <div className="flex items-center gap-1.5 min-w-0 flex-wrap pl-0.5">
-              <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[8px] font-bold truncate ${isRequest ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-orange-50 text-orange-600 border-orange-100'} flex-shrink-0 min-w-0`}>
-                  {isRequest ? <Car size={9} /> : <User size={9} />} {personLabel}
-              </span>
-            </div>
-          </div>
-          
-          <div className="space-y-2.5 mb-3 relative">
-              <div className="absolute left-[7px] top-3 bottom-3 w-0.5 rounded-full bg-gradient-to-b from-indigo-100/70 via-slate-100/70 to-emerald-100/70"></div>
-              
-              <div className="flex items-center gap-3 relative z-10">
-                <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-indigo-100/70 border-indigo-200/50 shadow-indigo-200/50">
-                  <div className="w-2 h-2 rounded-full shadow-inner bg-indigo-600"></div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-bold text-slate-700 truncate leading-tight" title={displayPickup}>{displayPickup}</p>
-                  <div className="flex items-center gap-1.5 mt-1">
-                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-indigo-50 text-indigo-600 border-indigo-100">
-                        <Clock size={8} /> <span className="text-[9px] font-black">{depTime}</span>
-                      </div>
-                      <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
-                        <Calendar size={8} /> <span className="text-[9px] font-bold">{depDate}</span>
-                      </div>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 relative z-10">
-                <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border shadow-lg bg-emerald-100/70 border-emerald-200/50 shadow-emerald-200/50">
-                  <div className="w-2 h-2 rounded-full shadow-inner bg-emerald-600"></div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-bold text-slate-700 truncate leading-tight" title={displayDropoff}>{displayDropoff}</p>
-                  <div className="flex items-center gap-1.5 mt-1">
-                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border shadow-sm bg-emerald-50 text-emerald-600 border-emerald-100">
-                        <Clock size={8} /> <span className="text-[9px] font-black">{arrTime}</span>
-                      </div>
-                      <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
-                        <Calendar size={8} /> <span className="text-[9px] font-bold">{arrDate}</span>
-                      </div>
-                  </div>
-                </div>
-              </div>
-          </div>
         </div>
-
-        <div className="grid grid-cols-3 items-center pt-3 border-t border-slate-100 mt-auto">
-          <div className="flex justify-start">
-              <div className="inline-flex items-center bg-cyan-50 text-cyan-700 px-2 py-0.5 rounded-md border border-cyan-200 shadow-sm self-start">
-                <CopyableCode code={bookingCode} className="text-[9px] font-black" label={bookingCode} />
-              </div>
-          </div>
-          
-          <div className="flex justify-center">
-              <button 
-                onClick={(e) => { e.stopPropagation(); onViewTripDetails(trip); }} 
-                className="px-2 py-1 rounded-lg transition-all border shadow-sm flex items-center gap-1.5 bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100"
-              >
-                <Info size={10} /><span className="text-[10px] font-bold">Chi tiết</span>
-              </button>
-          </div>
-
-          <div className="flex justify-end items-center gap-1 text-[9px] font-bold text-slate-400">
-              <Clock size={10} className="shrink-0" />
-              <span>{createdAtTime} {createdAtDay}</span>
-          </div>
-        </div>
+        
+        <button 
+            onClick={() => trip && onViewTripDetails(trip)} 
+            className="absolute inset-0 z-0" 
+            aria-label="Xem chi tiết"
+        />
       </div>
     );
   };
 
-  const renderGroup = (group: any[], title: string, icon: React.ElementType, colors: any) => {
+  const renderGroup = (group: any[], title: string, icon: any, colors: any) => {
     if (group.length === 0) return null;
     return (
-        <section className="space-y-5">
+        <section className="space-y-4">
             <SectionHeader icon={icon} title={title} count={group.length} color={colors.color} bgColor={colors.bgColor} />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 pb-5">
-                {group.map(order => renderOrderCard(order))}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {group.map(item => renderOrderCard(item))}
             </div>
         </section>
     );
   };
 
   return (
-    <div className="space-y-4 animate-slide-up max-w-[1600px] mx-auto">
-      <div className="flex justify-center mb-2">
-         <div className="bg-white p-1 rounded-2xl border border-slate-200 shadow-sm flex relative z-30 h-[42px]">
-            <button 
-               onClick={() => setRequestTypeFilter('ALL')}
-               className={`px-5 h-full rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${requestTypeFilter === 'ALL' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-200' : 'text-slate-500 hover:bg-slate-50'}`}
-            >
-               <Layers size={14} /> Tất cả
-            </button>
-            <button 
-               onClick={() => setRequestTypeFilter('BOOKING')}
-               className={`px-5 h-full rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${requestTypeFilter === 'BOOKING' ? 'bg-orange-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-            >
-               <User size={14} /> Khách đặt
-            </button>
-            <button 
-               onClick={() => setRequestTypeFilter('ACCEPTANCE')}
-               className={`px-5 h-full rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${requestTypeFilter === 'ACCEPTANCE' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-            >
-               <CheckCircle2 size={14} /> Tài xế nhận
-            </button>
-         </div>
-      </div>
+    <div className="space-y-4 animate-slide-up max-w-[1600px] mx-auto pb-20">
+        <div className="bg-white p-4 rounded-[24px] border border-slate-100 shadow-sm sticky top-0 z-30 space-y-4">
+            <div className="flex flex-col md:flex-row gap-4 justify-between">
+                <div className="flex items-center gap-2 w-full md:w-auto flex-1">
+                    <div className="relative group flex-1">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input 
+                            type="text" 
+                            placeholder="Tìm khách, mã đơn, SĐT..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 h-[42px] bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all"
+                        />
+                    </div>
+                    
+                    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0 h-[42px]">
+                        <button onClick={() => setRequestTypeFilter('ALL')} className={`px-3 rounded-lg text-[10px] font-bold transition-all ${requestTypeFilter === 'ALL' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Tất cả</button>
+                        <button onClick={() => setRequestTypeFilter('BOOKING')} className={`px-3 rounded-lg text-[10px] font-bold transition-all ${requestTypeFilter === 'BOOKING' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Khách đặt</button>
+                        <button onClick={() => setRequestTypeFilter('ACCEPTANCE')} className={`px-3 rounded-lg text-[10px] font-bold transition-all ${requestTypeFilter === 'ACCEPTANCE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>Nhận khách</button>
+                    </div>
+                </div>
 
-      <div className="bg-gradient-to-br from-emerald-50/80 to-white border border-emerald-100 p-6 rounded-[32px] shadow-sm space-y-5 backdrop-blur-sm relative z-30 transition-colors">
-        <div className="flex flex-col gap-4">
-          
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="flex gap-3 w-full md:flex-1">
-               <div className="relative flex-1 group">
-                  <Search className={`absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors`} size={16} />
-                  <input 
-                    type="text" placeholder="Tìm kiếm..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 h-[42px] bg-white/80 border border-slate-200 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-50/50 rounded-2xl outline-none transition-all font-bold text-slate-800 text-sm placeholder:text-slate-400 shadow-sm" 
-                  />
-               </div>
-               
-               <div className="flex-1 md:w-48 md:flex-none shrink-0">
-                  <UnifiedDropdown 
-                    label="Sắp xếp" icon={ArrowUpDown} value={sortOrder} width="w-full" showCheckbox={false}
-                    options={[
-                      { label: 'Mới nhất (Đơn)', value: 'NEWEST' },
-                      { label: 'Cũ nhất (Đơn)', value: 'OLDEST' },
-                      { label: 'Khởi hành sớm nhất', value: 'DEPARTURE_ASC' },
-                      { label: 'Giá cao nhất', value: 'PRICE_DESC' },
-                      { label: 'Giá thấp nhất', value: 'PRICE_ASC' }
-                    ]}
-                    onChange={setSortOrder}
-                  />
-               </div>
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+                    <UnifiedDropdown 
+                        label="Trạng thái" icon={ClipboardList} value={statusFilter} onChange={setStatusFilter}
+                        width="w-36 shrink-0" showCheckbox={true} isStatus={true} statusConfig={statusOptions}
+                        options={[{label:'Tất cả', value:'ALL'}, ...statusOptions]} 
+                    />
+                    <UnifiedDropdown 
+                        label="Thời gian" icon={Calendar} value={timeFilter} onChange={setTimeFilter}
+                        width="w-36 shrink-0" showCheckbox={true}
+                        options={[{label:'Tất cả', value:'ALL'}, {label:'Hôm nay', value:'TODAY'}, {label:'Hôm qua', value:'YESTERDAY'}, {label:'7 ngày qua', value:'WEEK'}]} 
+                    />
+                     <div className="bg-slate-50 p-1 rounded-xl border border-slate-200 flex items-center shrink-0 h-[42px]">
+                        <button onClick={() => setViewMode('list')} className={`p-2 h-full aspect-square flex items-center justify-center rounded-lg transition-all ${viewMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                            <LayoutList size={18} />
+                        </button>
+                        <button onClick={() => setViewMode('grid')} className={`p-2 h-full aspect-square flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                            <LayoutGrid size={18} />
+                        </button>
+                    </div>
+                </div>
             </div>
-            
-            <div className="hidden md:flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm items-center shrink-0 h-[42px]">
-              <button onClick={() => setViewMode('list')} className={`p-2 h-full aspect-square flex items-center justify-center rounded-xl transition-all ${viewMode === 'list' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                <LayoutList size={18} />
-              </button>
-              <button onClick={() => setViewMode('grid')} className={`p-2 h-full aspect-square flex items-center justify-center rounded-xl transition-all ${viewMode === 'grid' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                <LayoutGrid size={18} />
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:flex lg:flex-wrap gap-3 w-full">
-            <UnifiedDropdown label="Trạng thái" icon={ClipboardList} value={statusFilter} onChange={setStatusFilter}
-              isStatus={true} statusConfig={statusOptions} width="w-full lg:w-48" showCheckbox={true}
-              options={[{label:'Tất cả', value:'ALL'}, ...statusOptions]} />
-            
-            <UnifiedDropdown label="Thời gian" icon={Calendar} value={timeFilter} onChange={setTimeFilter} width="w-full lg:w-48" showCheckbox={true}
-              options={[{label:'Tất cả thời gian', value:'ALL'}, {label:'Hôm nay', value:'TODAY'}, {label:'Hôm qua', value:'YESTERDAY'}, {label:'7 ngày qua', value:'WEEK'}]} />
-          </div>
         </div>
-      </div>
 
-      <div className={`space-y-8 pb-20 ${viewMode === 'list' ? 'md:hidden' : ''}`}>
-        {filteredOrders.length > 0 ? (
-            <>
-                {renderGroup(groupedOrders.today, 'Hôm nay', CalendarDays, { color: 'text-emerald-600', bgColor: 'bg-emerald-100' })}
-                {renderGroup(groupedOrders.thisMonth, 'Trong tháng này', Calendar, { color: 'text-sky-600', bgColor: 'bg-sky-100' })}
-                {renderGroup(groupedOrders.future, 'Tương lai', Send, { color: 'text-indigo-600', bgColor: 'bg-indigo-100' })}
-                {renderGroup(groupedOrders.past, 'Lịch sử', History, { color: 'text-slate-500', bgColor: 'bg-slate-100' })}
-            </>
-        ) : (
-          <div className="p-10 text-center bg-white rounded-[24px] border border-dashed border-slate-200">
-             <ShoppingBag size={32} className="mx-auto text-slate-300 mb-2" />
-             <p className="text-xs font-bold text-slate-400">Không có đơn hàng nào</p>
-          </div>
-        )}
-      </div>
-
-      <div className={`hidden md:${viewMode === 'list' ? 'block' : 'hidden'} bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-visible min-h-[400px]`}>
-        <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left table-fixed min-w-[1300px]">
-            <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-100">
-                <SortHeader label="Thông tin đơn" sortKey="created_at" width="13%" />
-                <SortHeader label="Đối tác" sortKey="passenger_name" width="15%" />
-                <SortHeader label="Loại yêu cầu" sortKey="request_type" width="12%" />
-                <SortHeader label="Trạng thái" sortKey="status" width="15%" textAlign="text-center" />
-                <SortHeader label="Điểm đón" sortKey="origin_name" width="16%" />
-                <SortHeader label="Điểm đến" sortKey="dest_name" width="16%" />
-                <SortHeader label="Giá" sortKey="total_price" width="13%" textAlign="text-right" />
-              </tr>
-            </thead>
-            {loading ? (
-              <TableSkeleton cols={7} rows={6} />
+        {viewMode === 'grid' ? (
+             filteredOrders.length > 0 ? (
+                <>
+                    {renderGroup(groupedOrders.today, 'Hôm nay', CalendarDays, { color: 'text-emerald-600', bgColor: 'bg-emerald-100' })}
+                    {renderGroup(groupedOrders.future, 'Sắp tới', Send, { color: 'text-indigo-600', bgColor: 'bg-indigo-100' })}
+                    {renderGroup(groupedOrders.past, 'Lịch sử', History, { color: 'text-slate-500', bgColor: 'bg-slate-100' })}
+                </>
             ) : (
-              <tbody className="divide-y divide-slate-50">
-                {filteredOrders.length > 0 ? filteredOrders.map(order => {
-                  const trip = order.trips;
-                  const isRequest = trip?.is_request;
-                  
-                  const depTime = trip?.departure_time ? new Date(trip.departure_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
-                  const depDate = trip?.departure_time ? new Date(trip.departure_time).toLocaleDateString('vi-VN') : '--/--/----';
-                  const arrivalDateObj = trip?.arrival_time ? new Date(trip.arrival_time) : null;
-                  const arrTime = arrivalDateObj ? arrivalDateObj.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
-                  const arrDate = arrivalDateObj ? arrivalDateObj.toLocaleDateString('vi-VN') : '--/--/----';
-
-                  const bookingCode = `S${order.id.substring(0, 5).toUpperCase()}`;
-                  const isFinalStatus = order.status === 'EXPIRED' || order.status === 'CANCELLED';
-                  const createdAt = order.created_at ? new Date(order.created_at) : null;
-                  const bTime = createdAt ? createdAt.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--:--';
-                  const bDate = createdAt ? createdAt.toLocaleDateString('vi-VN') : '--/--/----';
-                  
-                  const personName = isRequest ? (order.profiles?.full_name || 'Tài xế nhận') : (order.profiles?.full_name || 'Khách vãng lai');
-                  const priceColor = isRequest ? 'text-indigo-600' : 'text-emerald-600';
-                  const displayPhone = order.passenger_phone ? order.passenger_phone.replace(/^(?:\+84|84)/, '0') : 'N/A';
-
-                  const { pickup, dropoff, message } = extractLocations(order.note);
-                  const displayPickup = pickup || trip?.origin_name;
-                  const displayDropoff = dropoff || trip?.dest_name;
-
-                  // Permission Check for Desktop Table
-                  const canManage = profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'driver';
-                  const isMyBooking = profile?.role === 'user' && order.passenger_id === profile?.id;
-                  const canCancel = isMyBooking && (order.status === 'PENDING' || order.status === 'CONFIRMED');
-
-                  // --- FIX VISUAL STATUS LOGIC ---
-                  const isTripCompleted = trip?.status === TripStatus.COMPLETED;
-                  const isBookingActive = ['CONFIRMED', 'PICKED_UP', 'ON_BOARD'].includes(order.status);
-                  const showCompletedBadge = isTripCompleted && isBookingActive;
-
-                  return (
-                    <tr 
-                      key={order.id} 
-                      className={`hover:bg-slate-50/30 transition-colors ${isFinalStatus ? 'opacity-90' : ''} cursor-pointer`} 
-                      onClick={() => onViewTripDetails(trip)}
-                    >
-                      <td className="px-4 py-3 pr-6">
-                         <div className="flex flex-col gap-1.5">
-                            <div className="flex items-center gap-1.5 self-start">
-                              <div className="inline-flex items-center gap-1 bg-amber-50 text-amber-600 px-2 py-0.5 rounded-md border border-amber-100 shadow-sm">
-                                <Clock size={8} />
-                                <span className="text-[9px] font-black">{bTime}</span>
-                              </div>
-                              <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
-                                <Calendar size={8} />
-                                <span className="text-[9px] font-bold">{bDate}</span>
-                              </div>
-                            </div>
-                            <div className="inline-flex items-center bg-cyan-50 text-cyan-700 px-2 py-0.5 rounded-md border border-cyan-200 shadow-sm self-start">
-                              <CopyableCode code={bookingCode} className="text-[9px] font-black" label={bookingCode} />
-                            </div>
-                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-1.5">
-                             <div className={`h-[18px] w-[18px] rounded-full flex items-center justify-center text-[8px] shrink-0 font-bold ${isRequest ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
-                               {personName.charAt(0)}
-                             </div>
-                             <p className="text-[10px] font-bold text-slate-800 truncate leading-tight">{personName}</p>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                             {order.passenger_phone && (
-                               <a href={`tel:${order.passenger_phone}`} className="w-[18px] h-[18px] bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100 shrink-0">
-                                 <Phone size={8} />
-                               </a>
-                             )}
-                             <CopyableCode code={order.passenger_phone || ''} className="text-[9px] font-bold text-indigo-600 truncate" label={displayPhone} />
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        {isRequest ? (
-                           <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[9px] font-bold bg-indigo-50 text-indigo-600 border-indigo-100 whitespace-nowrap">
-                              <CheckCircle2 size={10} /> Tài xế nhận
-                           </div>
-                        ) : (
-                           <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[9px] font-bold bg-orange-50 text-orange-600 border-orange-100 whitespace-nowrap">
-                              <User size={10} /> Khách đặt
-                           </div>
+                <div className="py-20 text-center">
+                    <ShoppingBag size={48} className="mx-auto text-slate-200 mb-4" />
+                    <p className="text-sm font-bold text-slate-400">Không có dữ liệu nào</p>
+                </div>
+            )
+        ) : (
+             <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left table-fixed min-w-[1000px]">
+                        <thead>
+                            <tr className="bg-slate-50 border-b border-slate-100">
+                                <SortHeader label="Thông tin khách" sortKey="profiles.full_name" width="20%" />
+                                <SortHeader label="Trạng thái" sortKey="status" width="15%" textAlign="text-center" />
+                                <SortHeader label="Chuyến xe" sortKey="trip_info" width="20%" />
+                                <SortHeader label="Tổng tiền" sortKey="total_price" width="15%" textAlign="text-right" />
+                                <SortHeader label="Ngày tạo" sortKey="created_at" width="15%" />
+                                <th className="px-4 py-3 text-[10px] font-bold text-slate-400 text-right">Thao tác</th>
+                            </tr>
+                        </thead>
+                        {loading ? <TableSkeleton rows={5} cols={6} /> : (
+                            <tbody className="divide-y divide-slate-50">
+                                {filteredOrders.map((order: any) => {
+                                    const bookingCode = `S${order.id.substring(0, 5).toUpperCase()}`;
+                                    const trip = order.trips;
+                                    const tripCode = trip?.trip_code || (trip?.id ? `T${trip.id.substring(0, 5).toUpperCase()}` : '---');
+                                    const personName = order.profiles?.full_name || 'Khách vãng lai';
+                                    const isRequest = trip?.is_request;
+                                    const priceColor = isRequest ? 'text-indigo-600' : 'text-orange-600';
+                                    
+                                    return (
+                                        <tr key={order.id} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm ${isRequest ? 'bg-indigo-600' : 'bg-orange-600'}`}>
+                                                        {personName.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[11px] font-bold text-slate-900 truncate">{personName}</p>
+                                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                                            <CopyableCode code={bookingCode} className="text-[8px] bg-slate-100 px-1.5 rounded border border-slate-200" />
+                                                            {order.passenger_phone && <span className="text-[9px] text-slate-500">{order.passenger_phone.replace(/^(?:\+84|84)/, '0')}</span>}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <div onClick={(e) => e.stopPropagation()} className="inline-block">
+                                                    {actionLoading === order.id ? (
+                                                        <Loader2 className="animate-spin text-indigo-500 mx-auto" size={14} />
+                                                    ) : (
+                                                        <BookingStatusSelector 
+                                                            value={order.status} 
+                                                            onChange={(newStatus) => handleUpdateStatus(order.id, newStatus)} 
+                                                            disabled={trip?.status === TripStatus.COMPLETED || trip?.status === TripStatus.CANCELLED}
+                                                        />
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{tripCode}</span>
+                                                    <span className="text-[10px] font-bold text-slate-700 truncate max-w-[150px]">{trip?.origin_name} → {trip?.dest_name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <span className={`text-[11px] font-bold ${priceColor}`}>
+                                                    {new Intl.NumberFormat('vi-VN').format(order.total_price)}đ
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className="text-[10px] text-slate-600">{new Date(order.created_at).toLocaleDateString('vi-VN')}</span>
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); trip && onViewTripDetails(trip); }}
+                                                    className="p-1.5 bg-slate-50 text-slate-500 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors"
+                                                    title="Xem chi tiết"
+                                                >
+                                                    <Info size={14} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
                         )}
-                      </td>
-
-                      <td className="px-4 py-4 text-center">
-                        <div className="flex flex-col items-center gap-2">
-                          <div className="w-full max-w-[130px] relative" onClick={(e) => e.stopPropagation()}>
-                            {actionLoading === order.id ? (
-                                <div className="flex items-center justify-center py-1 bg-slate-50 rounded-lg border border-slate-100"><Loader2 className="animate-spin text-indigo-500" size={12} /></div> 
-                            ) : showCompletedBadge ? (
-                                <div className="flex items-center justify-center gap-1 px-2 py-1 rounded-lg border text-[9px] font-bold bg-emerald-50 text-emerald-600 border-emerald-100 cursor-default shadow-sm w-full">
-                                    <CheckCircle2 size={10} />
-                                    <span>Hoàn thành</span>
-                                </div>
-                            ) : (
-                                <BookingStatusSelector 
-                                    value={order.status} 
-                                    onChange={(newStatus) => handleUpdateStatus(order.id, newStatus)} 
-                                    disabled={!canManage && !canCancel}
-                                />
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3">
-                         <div className="flex flex-col gap-1.5">
-                            <p className="text-[10px] font-bold text-slate-800 truncate leading-tight mt-0.5 pr-1" title={displayPickup}>
-                              {displayPickup}
-                            </p>
-                         </div>
-                      </td>
-
-                      <td className="px-4 py-3">
-                         <div className="flex flex-col gap-1.5">
-                            <p className="text-[10px] font-bold text-emerald-600 truncate leading-tight mt-0.5 pr-1" title={displayDropoff}>
-                              {displayDropoff}
-                            </p>
-                         </div>
-                      </td>
-
-                      <td className="px-4 py-3 text-right pr-4">
-                        <p className={`text-[10px] font-bold leading-tight ${priceColor}`}>
-                          {order.total_price === 0 ? 'Thoả thuận' : new Intl.NumberFormat('vi-VN').format(order.total_price) + 'đ'}
-                        </p>
-                      </td>
-                    </tr>
-                  );
-                }) : (
-                  <tr><td colSpan={7} className="px-6 py-20 text-center italic text-slate-500 text-[11px] font-bold">Chưa có đơn hàng nào khớp với bộ lọc</td></tr>
-                )}
-              </tbody>
-            )}
-          </table>
-          <div className="h-40"></div>
-        </div>
-      </div>
+                    </table>
+                     {!loading && filteredOrders.length === 0 && (
+                        <div className="py-10 text-center text-slate-400 text-xs font-bold">Không có dữ liệu</div>
+                    )}
+                </div>
+            </div>
+        )}
     </div>
   );
 };
+
 export default OrderManagement;

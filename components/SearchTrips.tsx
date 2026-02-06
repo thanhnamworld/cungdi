@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Search as SearchIcon, MapPin, Calendar, Clock, User, ChevronRight, Star, LayoutGrid, CalendarDays, ChevronDown, Car, CarFront, Sparkles, Crown, DollarSign, ArrowUpDown, Filter, Check, X, History, Users, ArrowRight, AlertCircle, Timer, Zap, CheckCircle2, Play, Radio, Shield, Settings, Hash, Navigation, ClipboardList, Repeat, Send, Loader2, Map as MapIcon, Plus, Info, Ban, ListChecks, Ticket, Layers, Gem, Handshake, XCircle
 } from 'lucide-react';
@@ -274,7 +275,8 @@ interface TripCardProps {
 }
 
 export const TripCard: React.FC<TripCardProps> = ({ trip, onBook, userBookings = [], profile, onViewTripDetails }) => {
-  const tripCode = trip.trip_code || `T${trip.id.substring(0, 5).toUpperCase()}`;
+  // Update: Logic ID Chuyến xe bắt đầu bằng X
+  const tripCode = trip.trip_code || `X${trip.id.substring(0, 5).toUpperCase()}`;
   const departureDate = new Date(trip.departure_time);
   const statusInfo = getTripStatusDisplay(trip);
   const StatusIcon = statusInfo.icon;
@@ -584,7 +586,7 @@ const SearchTrips: React.FC<SearchTripsProps> = ({ trips, onBook, userBookings, 
       // Filter out past trips strictly for Search view
       if (new Date(t.departure_time) < new Date()) return false;
 
-      const tripCode = t.trip_code || (t.id ? `T${t.id.substring(0, 5).toUpperCase()}` : '');
+      const tripCode = t.trip_code || (t.id ? `X${t.id.substring(0, 5).toUpperCase()}` : '');
       const matchesSearch = removeAccents(t.origin_name).includes(searchNormalized) || 
                             removeAccents(t.dest_name).includes(searchNormalized) ||
                             (tripCode && removeAccents(tripCode).includes(searchNormalized)) ||

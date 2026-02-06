@@ -85,9 +85,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
       
       const fetchDriverDetails = async () => {
         if (!trip.driver_id) return;
-        // FIX: Lấy thêm 'role' để kiểm tra quyền hạn tài xế
         const { data: driverProfile } = await supabase.from('profiles').select('role, is_discount_provider').eq('id', trip.driver_id).single();
-        // FIX: Chỉ kích hoạt giảm giá nếu đúng là Tài xế và có bật chế độ ưu đãi
         if (driverProfile) {
             setDriverIsProvider((driverProfile.role === 'driver' && driverProfile.is_discount_provider) || false);
         }
@@ -97,7 +95,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
             if (parts.length > 1) {
                 const plate = parts[1].replace(')', '').trim();
                 const { data } = await supabase.from('vehicles').select('image_url').eq('license_plate', plate).maybeSingle();
-                if (data?.image_url) setVehicleImage(data.image_url); else setVehicleImage(null);
+                if (data?.image_url) setVehicleImage(data.publicUrl || data.image_url); else setVehicleImage(null);
             } else { setVehicleImage(null); }
         } else { setVehicleImage(null); }
       };
@@ -118,12 +116,11 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
   useEffect(() => {
     if (selectedUser) {
         setPhone(selectedUser.phone?.replace(/^(?:\+84|84)/, '0') || '');
-    } else if (!isRequest) { // Only reset phone if not a request (for drivers accepting)
+    } else if (!isRequest) {
         setPhone(profile?.phone?.replace(/^(?:\+84|84)/, '0') || '');
     }
   }, [selectedUser, profile, isRequest]);
   
-  // Search Users Debounced Effect
   useEffect(() => {
     if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
@@ -135,7 +132,6 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
     }
     setIsSearching(true);
     searchTimeoutRef.current = window.setTimeout(async () => {
-        // 1. Tìm các user_id có xe khớp biển số trước
         const { data: vehicles } = await supabase
             .from('vehicles')
             .select('user_id')
@@ -143,7 +139,6 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
         
         const vehicleUserIds = vehicles?.map(v => v.user_id) || [];
         
-        // 2. Tạo điều kiện tìm kiếm: Tên OR SĐT OR (ID nằm trong danh sách biển số khớp)
         let orCondition = `full_name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`;
         if (vehicleUserIds.length > 0) {
             orCondition += `,id.in.(${vehicleUserIds.join(',')})`;
@@ -151,10 +146,9 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
 
         let query = supabase
             .from('profiles')
-            .select('*, vehicles(license_plate)') // Lấy thêm thông tin xe để hiển thị
+            .select('*, vehicles(license_plate)')
             .or(orCondition);
         
-        // Nếu là request (khách tìm xe), staff tìm TÀI XẾ để gán
         if (isRequest) {
             query = query.eq('role', 'driver');
         }
@@ -178,10 +172,9 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Check if click is outside modal content (modalRef)
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
          onClose();
-         return; // Exit early
+         return;
       }
 
       if (pickupRef.current && !pickupRef.current.contains(event.target as Node)) setShowPickupSuggestions(false);
@@ -225,7 +218,6 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
     if (phone.length < 10) { setError('Số điện thoại không hợp lệ'); return; }
     if (!pickupLocation.trim() || !dropoffLocation.trim()) { setError('Vui lòng chọn điểm đón và điểm trả chính'); return; }
     
-    // For staff accepting a request FOR a driver, a driver must be selected.
     if (isStaff && isRequest && !selectedUser) {
         setError('Vui lòng chọn một tài xế để giao chuyến.');
         return;
@@ -294,7 +286,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
 
   const createdAtDate = trip.created_at ? new Date(trip.created_at) : null;
   const createdAtTime = createdAtDate ? createdAtDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-  const createdAtDay = createdAtDate ? `${String(createdAtDate.getDate()).padStart(2, '0')}/${String(createdAtDate.getMonth() + 1).padStart(2, '0')}` : '--/--';
+  const createdAtDay = createdAtDate ? createdAtDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--/--';
 
   const isOngoing = trip.status === TripStatus.ON_TRIP;
   const isUrgent = trip.status === TripStatus.URGENT;
@@ -303,8 +295,8 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
   const isCancelled = trip.status === TripStatus.CANCELLED;
 
   const rightTheme = isRequest 
-    ? { textMain: 'text-orange-600', bgSoft: 'bg-orange-50/50', bgBadge: 'bg-orange-50', borderBadge: 'border-orange-100', textBadge: 'text-orange-600', border: 'border-orange-100', ring: 'focus:ring-orange-100', focusBorder: 'focus:border-orange-400', button: 'bg-orange-600 hover:bg-orange-700 shadow-orange-200', iconColor: 'text-orange-500', dot: 'bg-orange-500' }
-    : { textMain: 'text-indigo-600', bgSoft: 'bg-indigo-50/50', bgBadge: 'bg-indigo-50', borderBadge: 'border-indigo-100', textBadge: 'text-indigo-600', border: 'border-indigo-100', ring: 'focus:ring-indigo-100', focusBorder: 'focus:border-indigo-400', button: 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200', iconColor: 'text-indigo-500', dot: 'bg-indigo-500' };
+    ? { textMain: 'text-orange-600', bgSoft: 'bg-orange-50/50', bgBadge: 'bg-orange-50', borderBadge: 'border-orange-100', textBadge: 'text-orange-600', border: 'border-orange-100', ring: 'focus:ring-orange-100', focusBorder: 'focus:border-orange-400', button: 'bg-orange-600 hover:bg-orange-700 shadow-orange-200', iconColor: 'text-orange-500', dot: 'bg-orange-500', gradient: 'from-orange-50/80 to-white' }
+    : { textMain: 'text-indigo-600', bgSoft: 'bg-indigo-50/50', bgBadge: 'bg-indigo-50', borderBadge: 'border-indigo-100', textBadge: 'text-indigo-600', border: 'border-indigo-100', ring: 'focus:ring-indigo-100', focusBorder: 'focus:border-indigo-400', button: 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200', iconColor: 'text-indigo-500', dot: 'bg-indigo-500', gradient: 'from-indigo-50/80 to-white' };
 
   const TripMainInfoCard = ({ className = "" }) => (
     <div className={`bg-white p-4 rounded-[24px] border shadow-sm flex flex-col justify-between group overflow-hidden relative ${isOngoing ? 'border-blue-200 bg-blue-50/20' : isUrgent ? 'border-rose-400 bg-rose-50/20' : isPreparing ? 'border-amber-300 bg-amber-50/10' : 'border-slate-100'} ${isCompleted || isCancelled ? 'opacity-80' : ''} ${className}`}>
@@ -325,18 +317,15 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center sm:p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
-      {/* Updated Wrapper to support positioning context for the button */}
       <div className="relative w-[calc(100%-24px)] md:w-full max-w-6xl h-[90vh] md:h-[85vh] mx-3 md:mx-0 z-[150] animate-in zoom-in-95 duration-300">
-        <div ref={modalRef} className="bg-[#F8FAFC] w-full h-full rounded-[32px] shadow-2xl overflow-hidden flex flex-col border border-white/20">
+        <div ref={modalRef} className="bg-[#F8FAFC] w-full h-full rounded-[32px] md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col border border-white/20">
             <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
                 <div className="hidden md:flex w-1/2 h-full flex-col bg-emerald-50/40 border-r border-slate-200 p-6 pt-8"><div className="flex items-center gap-3 mb-5 shrink-0 h-[32px]"><div className="p-2 bg-emerald-100/50 rounded-xl text-emerald-600 border border-emerald-100"><Info size={18} /></div><h3 className="text-lg font-black text-slate-800 tracking-tight">Thông tin chuyến</h3></div><div className="flex-1 flex flex-col gap-4 min-h-0"><TripMainInfoCard className="flex-1" /><TripDriverInfoCard className="h-[210px] shrink-0" /></div></div>
-                <div className={`w-full md:w-1/2 h-full flex flex-col relative ${rightTheme.bgSoft} p-6`}>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-4">
-                        <div className="md:hidden space-y-4"><div className="flex items-center gap-3 mb-5 shrink-0 h-[32px]"><div className="p-2 bg-emerald-100/50 rounded-xl text-emerald-600 border border-emerald-100"><Info size={18} /></div><h3 className="text-lg font-black text-slate-800 tracking-tight">Thông tin chuyến</h3></div><TripMainInfoCard className="h-auto" /><TripDriverInfoCard className="h-auto" /><div className="w-full h-px bg-slate-200/50 my-2"></div></div>
-                        <div className="flex items-center gap-3 mb-1 shrink-0 h-[32px]"><div className={`p-2 rounded-xl border ${rightTheme.bgBadge} ${rightTheme.borderBadge} ${rightTheme.textMain}`}><CreditCard size={18} /></div><h3 className="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2">{isRequest ? 'Nhận chuyến ngay' : 'Đặt chỗ ngay'}{isWaitingList && <span className="bg-amber-100 text-amber-600 text-[9px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">Đăng ký chờ</span>}</h3></div>
-                        <div className="flex flex-col gap-4 md:h-full md:min-h-0">
-                            {isStaff && (
-                            <div ref={searchRef} className={`p-4 rounded-[24px] bg-white border shadow-sm relative flex flex-col shrink-0 ${selectedUser ? 'border-indigo-200' : 'border-slate-100'}`}>
+                <div className="w-full md:w-1/2 h-full flex flex-col bg-[#F8FAFC]">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col p-6">
+                        
+                        {isStaff && (
+                            <div ref={searchRef} className={`mb-5 p-4 rounded-[24px] bg-white border shadow-sm relative flex flex-col shrink-0 ${selectedUser ? 'border-indigo-200' : 'border-slate-100'}`}>
                                 <div className="flex items-center justify-between mb-2">
                                     <h4 className="text-xs font-bold flex items-center gap-2 text-indigo-600">
                                         <UserSearch size={14} /> {isRequest ? 'Giao cho tài xế' : 'Đặt hộ cho thành viên'}
@@ -350,7 +339,6 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
                                             <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">{selectedUser.full_name.charAt(0)}</div>
                                             <div>
                                                 <span className="text-xs font-bold text-slate-800">{selectedUser.full_name}</span>
-                                                {/* Hiển thị biển số xe nếu có */}
                                                 {(selectedUser as any).vehicles && (selectedUser as any).vehicles.length > 0 && (
                                                     <span className="text-[9px] text-slate-500 block">
                                                         {(selectedUser as any).vehicles.map((v:any) => v.license_plate).join(', ')}
@@ -367,7 +355,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
                                         <div className="absolute left-2.5 top-1/2 -translate-y-1/2">{isSearching ? <Loader2 size={12} className="animate-spin text-slate-400" /> : <Search size={12} className="text-slate-400" />}</div>
                                     </div>
                                     {searchResults.length > 0 && (
-                                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-xl z-50 overflow-hidden max-h-40 overflow-y-auto custom-scrollbar">
+                                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-xl z-[100] overflow-hidden max-h-40 overflow-y-auto custom-scrollbar">
                                         {searchResults.map(user => (
                                             <button key={user.id} onClick={() => { setSelectedUser(user); setSearchResults([]); setSearchQuery(''); }} className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 border-b border-slate-50 last:border-0 flex items-center gap-2">
                                                 <div className="w-5 h-5 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center text-[9px] font-bold">{user.full_name.charAt(0)}</div>
@@ -389,12 +377,19 @@ const BookingModal: React.FC<BookingModalProps> = ({ trip, profile, isOpen, onCl
                                     </>
                                 )}
                             </div>
-                            )}
-
-                            <div className={`p-5 rounded-[24px] bg-white border border-slate-100 shadow-sm relative flex flex-col md:flex-1`}><h4 className={`text-xs font-bold mb-3 flex items-center gap-2 ${rightTheme.textMain} shrink-0`}><Navigation size={14} /> {isRequest ? 'Lộ trình của khách' : 'Chi tiết điểm đón & trả'}</h4><div className="relative pl-3 flex-1 flex flex-col justify-center"><div className="absolute left-[15px] top-3 bottom-12 w-0.5 border-l-2 border-dashed border-slate-300/60"></div><div className="relative mb-5 group" ref={pickupRef}><div className={`absolute left-0 top-2.5 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm z-10 ${rightTheme.dot}`}></div><div className="pl-7 space-y-2"><label className="text-xs font-bold text-slate-800 block">Điểm đón mong muốn</label><div className="relative"><input type="text" value={pickupLocation} onChange={(e) => { setPickupLocation(e.target.value); setShowPickupSuggestions(true); }} onFocus={() => setShowPickupSuggestions(true)} placeholder="Tìm địa điểm..." className={`w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none ${rightTheme.focusBorder} ${rightTheme.ring} focus:ring-4 transition-all shadow-sm focus:bg-white`}/>{showPickupSuggestions && pickupSuggestions.length > 0 && (<div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-xl z-50 overflow-hidden">{pickupSuggestions.map((s, idx) => (<button key={idx} onClick={() => { setPickupLocation(s); setShowPickupSuggestions(false); }} className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 border-b border-slate-50 last:border-0">{s}</button>))}</div>)}</div><div className="relative mt-2"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-rose-400"><Info size={14} /></div><input type="text" value={pickupDetail} onChange={(e) => setPickupDetail(e.target.value)} placeholder="VD: Đón ở cổng sau, số nhà 123..." className="w-full pl-9 pr-3 py-2.5 bg-white border border-rose-200 rounded-xl text-xs font-bold text-slate-800 placeholder:text-slate-400 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-50 transition-all shadow-sm"/></div></div></div><div className="relative group" ref={dropoffRef}><div className={`absolute left-0 top-2.5 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm z-10 ${rightTheme.dot}`}></div><div className="pl-7 space-y-2"><label className="text-xs font-bold text-slate-800 block">Điểm trả mong muốn</label><div className="relative"><input type="text" value={dropoffLocation} onChange={(e) => { setDropoffLocation(e.target.value); setShowDropoffSuggestions(true); }} onFocus={() => setShowDropoffSuggestions(true)} placeholder="Tìm địa điểm..." className={`w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none ${rightTheme.focusBorder} ${rightTheme.ring} focus:ring-4 transition-all shadow-sm focus:bg-white`}/>{showDropoffSuggestions && dropoffSuggestions.length > 0 && (<div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-xl z-50 overflow-hidden">{dropoffSuggestions.map((s, idx) => (<button key={idx} onClick={() => { setDropoffLocation(s); setShowDropoffSuggestions(false); }} className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 border-b border-slate-50 last:border-0">{s}</button>))}</div>)}</div><div className="relative mt-2"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-rose-400"><Info size={14} /></div><input type="text" value={dropoffDetail} onChange={(e) => setDropoffDetail(e.target.value)} placeholder="VD: Trả ở ngã tư, đối diện..." className="w-full pl-9 pr-3 py-2.5 bg-white border border-rose-200 rounded-xl text-xs font-bold text-slate-800 placeholder:text-slate-400 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-50 transition-all shadow-sm"/></div></div></div></div></div>
-                            <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm space-y-4 md:h-[230px] shrink-0 flex flex-col justify-center"><div className="flex gap-3 h-[60px]"><div className="flex-1 min-w-0"><label className={`text-xs font-bold text-slate-800 mb-1.5 ml-1 flex items-center gap-1.5`}><Phone size={10} className={rightTheme.textMain} /> Số điện thoại</label><input type="tel" required value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="09..." className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl ${rightTheme.focusBorder} ${rightTheme.ring} focus:ring-4 outline-none font-bold text-slate-700 text-xs transition-all h-[38px] focus:bg-white`}/></div><div className="w-[55px] shrink-0" ref={seatPickerRef}><label className={`text-xs font-bold text-slate-800 mb-1.5 ml-1 flex items-center gap-1.5`}><Ticket size={10} className={rightTheme.textMain} /> Vé</label><div className="relative h-[38px]">{!isRequest ? (<><button type="button" onClick={() => setShowSeatPicker(!showSeatPicker)} className={`w-full h-full flex items-center justify-center gap-1 bg-slate-50 border border-slate-200 rounded-xl ${rightTheme.focusBorder} ${rightTheme.ring} focus:ring-4 outline-none font-bold text-slate-700 text-xs transition-all active:scale-95 focus:bg-white`}>{seats <= 6 && <div className={`w-1.5 h-1.5 rounded-full ${getSeatColor(seats)}`}></div>}<span>{seats}</span><ChevronDown size={10} className="text-slate-400" /></button>{showSeatPicker && (<div className="absolute top-full left-0 mt-1 w-[140px] bg-white border border-slate-100 rounded-xl shadow-xl z-50 p-2 grid grid-cols-3 gap-1 animate-in fade-in zoom-in-95 duration-200 -translate-x-[40px]">{[1, 2, 3, 4, 5, 6].map((s) => (<button key={s} onClick={() => { setSeats(s); setShowSeatPicker(false); }} className={`h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all relative ${seats === s ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200' : 'hover:bg-slate-50 text-slate-600'}`}>{s <= 6 && <div className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${getSeatColor(s)}`}></div>}{s}</button>))}</div>)}</>) : (<div className="w-full h-full flex items-center justify-center gap-1 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 cursor-not-allowed">{trip.seats === 7 ? 'Bao xe' : `${trip.seats}`}</div>)}</div></div>{!isRequest && (<div className="w-[105px] shrink-0"><label className={`text-xs font-bold text-slate-800 mb-1.5 ml-1 flex items-center gap-1.5`}><Wallet size={10} className={rightTheme.textMain} /> Thành tiền</label><div className={`w-full h-[38px] px-2 rounded-xl border flex flex-col items-center justify-center ${rightTheme.bgBadge} ${rightTheme.borderBadge}`}><div className="flex items-center gap-1">{discountAmount > 0 && <span className="text-[9px] text-slate-400 line-through decoration-slate-400">{new Intl.NumberFormat('vi-VN').format(originalPrice)}</span>}<span className={`text-xs font-black ${rightTheme.textBadge} truncate`}>{new Intl.NumberFormat('vi-VN').format(finalPrice)}đ</span></div></div></div>)}</div>{!isRequest && discountAmount > 0 && (<div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100"><tierConfig.icon size={12} className={tierConfig.color} /><span className="text-[10px] font-bold text-slate-700">{discountLabel}: <span className="text-emerald-600">-{new Intl.NumberFormat('vi-VN').format(discountAmount)}đ</span></span></div>)}<div><label className={`text-xs font-bold text-slate-800 mb-1.5 ml-1 flex items-center gap-1.5`}><MessageSquare size={10} className={rightTheme.textMain} /> Lời nhắn</label><textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder={isRequest ? "VD: Tôi sẽ đón bạn đúng giờ, xe sạch sẽ..." : "VD: Có hành lý, đón ở ngõ..."} rows={2} className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl ${rightTheme.focusBorder} ${rightTheme.ring} focus:ring-4 outline-none font-medium text-xs text-slate-700 transition-all resize-none focus:bg-white`}/></div></div>
+                        )}
+                        
+                        <div className={`flex flex-col rounded-[32px] border border-white/50 shadow-sm overflow-hidden bg-gradient-to-br ${rightTheme.gradient}`}>
+                            <div className="p-5 md:p-6 flex-1 flex flex-col min-h-0">
+                                <div className="flex items-center gap-3 mb-4 shrink-0 h-[32px]"><div className={`p-2 rounded-xl border ${rightTheme.bgBadge} ${rightTheme.borderBadge} ${rightTheme.textMain}`}><CreditCard size={18} /></div><h3 className="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2">{isRequest ? 'Nhận chuyến ngay' : 'Đặt chỗ ngay'}{isWaitingList && <span className="bg-amber-100 text-amber-600 text-[9px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">Đăng ký chờ</span>}</h3></div>
+                                <div className="md:hidden space-y-4 mb-4"><div className="flex items-center gap-3 mb-5 shrink-0 h-[32px]"><div className="p-2 bg-emerald-100/50 rounded-xl text-emerald-600 border border-emerald-100"><Info size={18} /></div><h3 className="text-lg font-black text-slate-800 tracking-tight">Thông tin chuyến</h3></div><TripMainInfoCard className="h-auto" /><TripDriverInfoCard className="h-auto" /><div className="w-full h-px bg-slate-200/50 my-2"></div></div>
+                                <div className="flex flex-col gap-4 flex-1">
+                                    <div className={`p-5 rounded-[24px] bg-white border border-slate-100 shadow-sm relative flex flex-col md:flex-1 min-h-[300px]`}><h4 className={`text-xs font-bold mb-3 flex items-center gap-2 ${rightTheme.textMain} shrink-0`}><Navigation size={14} /> {isRequest ? 'Lộ trình của khách' : 'Chi tiết điểm đón & trả'}</h4><div className="relative pl-3 flex-1 flex flex-col justify-center"><div className="absolute left-[15px] top-3 bottom-12 w-0.5 border-l-2 border-dashed border-slate-300/60"></div><div className="relative mb-5 group" ref={pickupRef}><div className={`absolute left-0 top-2.5 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm z-10 ${rightTheme.dot}`}></div><div className="pl-7 space-y-2"><label className="text-xs font-bold text-slate-800 block">Điểm đón mong muốn</label><div className="relative"><input type="text" value={pickupLocation} onChange={(e) => { setPickupLocation(e.target.value); setShowPickupSuggestions(true); }} onFocus={() => setShowPickupSuggestions(true)} placeholder="Tìm địa điểm..." className={`w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none ${rightTheme.focusBorder} ${rightTheme.ring} focus:ring-4 transition-all shadow-sm focus:bg-white`}/>{showPickupSuggestions && pickupSuggestions.length > 0 && (<div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-xl z-50 overflow-hidden">{pickupSuggestions.map((s, idx) => (<button key={idx} onClick={() => { setPickupLocation(s); setShowPickupSuggestions(false); }} className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 border-b border-slate-50 last:border-0">{s}</button>))}</div>)}</div><div className="relative mt-2"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-rose-400"><Info size={14} /></div><input type="text" value={pickupDetail} onChange={(e) => setPickupDetail(e.target.value)} placeholder="VD: Đón ở cổng sau, số nhà 123..." className="w-full pl-9 pr-3 py-2.5 bg-white border border-rose-200 rounded-xl text-xs font-bold text-slate-800 placeholder:text-slate-400 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-50 transition-all shadow-sm"/></div></div></div><div className="relative group" ref={dropoffRef}><div className={`absolute left-0 top-2.5 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm z-10 ${rightTheme.dot}`}></div><div className="pl-7 space-y-2"><label className="text-xs font-bold text-slate-800 block">Điểm trả mong muốn</label><div className="relative"><input type="text" value={dropoffLocation} onChange={(e) => { setDropoffLocation(e.target.value); setShowDropoffSuggestions(true); }} onFocus={() => setShowDropoffSuggestions(true)} placeholder="Tìm địa điểm..." className={`w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none ${rightTheme.focusBorder} ${rightTheme.ring} focus:ring-4 transition-all shadow-sm focus:bg-white`}/>{showDropoffSuggestions && dropoffSuggestions.length > 0 && (<div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-xl z-50 overflow-hidden">{dropoffSuggestions.map((s, idx) => (<button key={idx} onClick={() => { setDropoffLocation(s); setShowDropoffSuggestions(false); }} className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 border-b border-slate-50 last:border-0">{s}</button>))}</div>)}</div><div className="relative mt-2"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-rose-400"><Info size={14} /></div><input type="text" value={dropoffDetail} onChange={(e) => setDropoffDetail(e.target.value)} placeholder="VD: Trả ở ngã tư, đối diện..." className="w-full pl-9 pr-3 py-2.5 bg-white border border-rose-200 rounded-xl text-xs font-bold text-slate-800 placeholder:text-slate-400 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-50 transition-all shadow-sm"/></div></div></div></div></div>
+                                    <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm space-y-4 md:h-[230px] shrink-0 flex flex-col justify-center"><div className="flex gap-3 h-[60px]"><div className="flex-1 min-w-0"><label className={`text-xs font-bold text-slate-800 mb-1.5 ml-1 flex items-center gap-1.5`}><Phone size={10} className={rightTheme.textMain} /> SĐT</label><input type="tel" required value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="09..." className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl ${rightTheme.focusBorder} ${rightTheme.ring} focus:ring-4 outline-none font-bold text-slate-700 text-xs transition-all h-[38px] focus:bg-white`}/></div><div className="w-[55px] shrink-0" ref={seatPickerRef}><label className={`text-xs font-bold text-slate-800 mb-1.5 ml-1 flex items-center gap-1.5`}><Ticket size={10} className={rightTheme.textMain} /> Vé</label><div className="relative h-[38px]">{!isRequest ? (<><button type="button" onClick={() => setShowSeatPicker(!showSeatPicker)} className={`w-full h-full flex items-center justify-center gap-1 bg-slate-50 border border-slate-200 rounded-xl ${rightTheme.focusBorder} ${rightTheme.ring} focus:ring-4 outline-none font-bold text-slate-700 text-xs transition-all active:scale-95 focus:bg-white`}>{seats <= 6 && <div className={`w-1.5 h-1.5 rounded-full ${getSeatColor(seats)}`}></div>}<span>{seats}</span><ChevronDown size={10} className="text-slate-400" /></button>{showSeatPicker && (<div className="absolute top-full left-0 mt-1 w-[140px] bg-white border border-slate-100 rounded-xl shadow-xl z-50 p-2 grid grid-cols-3 gap-1 animate-in fade-in zoom-in-95 duration-200 -translate-x-[40px]">{[1, 2, 3, 4, 5, 6].map((s) => (<button key={s} onClick={() => { setSeats(s); setShowSeatPicker(false); }} className={`h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all relative ${seats === s ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200' : 'hover:bg-slate-50 text-slate-600'}`}>{s <= 6 && <div className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${getSeatColor(s)}`}></div>}{s}</button>))}</div>)}</>) : (<div className="w-full h-full flex items-center justify-center gap-1 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 cursor-not-allowed">{trip.seats === 7 ? 'Bao xe' : `${trip.seats}`}</div>)}</div></div>{!isRequest && (<div className="w-[105px] shrink-0"><label className={`text-xs font-bold text-slate-800 mb-1.5 ml-1 flex items-center gap-1.5`}><Wallet size={10} className={rightTheme.textMain} /> T.Tiền</label><div className={`w-full h-[38px] px-2 rounded-xl border flex flex-col items-center justify-center ${rightTheme.bgBadge} ${rightTheme.borderBadge}`}><div className="flex items-center gap-1">{discountAmount > 0 && <span className="text-[9px] text-slate-400 line-through decoration-slate-400">{new Intl.NumberFormat('vi-VN').format(originalPrice)}</span>}<span className={`text-xs font-black ${rightTheme.textBadge} truncate`}>{new Intl.NumberFormat('vi-VN').format(finalPrice)}đ</span></div></div></div>)}</div>{!isRequest && discountAmount > 0 && (<div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100"><tierConfig.icon size={12} className={tierConfig.color} /><span className="text-[10px] font-bold text-slate-700">{discountLabel}: <span className="text-emerald-600">-{new Intl.NumberFormat('vi-VN').format(discountAmount)}đ</span></span></div>)}<div><label className={`text-xs font-bold text-slate-800 mb-1.5 ml-1 flex items-center gap-1.5`}><MessageSquare size={10} className={rightTheme.textMain} /> Lời nhắn</label><textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder={isRequest ? "VD: Tôi sẽ đón bạn đúng giờ, xe sạch sẽ..." : "VD: Có hành lý, đón ở ngõ..."} rows={2} className={`w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl ${rightTheme.focusBorder} ${rightTheme.ring} focus:ring-4 outline-none font-medium text-xs text-slate-700 transition-all resize-none focus:bg-white`}/></div></div>
+                                </div>
+                                {error && (<div className="p-3 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-2 text-rose-600 text-xs font-bold animate-in slide-in-from-top-1 mt-4"><AlertCircle size={14} /> {error}</div>)}
+                            </div>
                         </div>
-                        {error && (<div className="p-3 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-2 text-rose-600 text-xs font-bold animate-in slide-in-from-top-1"><AlertCircle size={14} /> {error}</div>)}
                     </div>
                 </div>
             </div>

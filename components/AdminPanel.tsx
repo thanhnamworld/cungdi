@@ -320,6 +320,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ showAlert }) => {
       const { data: tripsData } = await supabase.from('trips').select('driver_id, created_at').order('created_at', { ascending: false });
       const { data: bookingsData } = await supabase.from('bookings').select('passenger_id, created_at').order('created_at', { ascending: false });
 
+      // Sort profiles by created_at to calculate sequential ID
+      const sortedProfiles = (profiles || []).sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
+      
+      const idMap = new Map();
+      sortedProfiles.forEach((p, index) => {
+          idMap.set(p.id, `K${String(index + 1).padStart(5, '0')}`);
+      });
+
       const userStats = (profiles || []).map(p => {
         const userTrips = tripsData?.filter(t => t.driver_id === p.id) || [];
         const userBookings = bookingsData?.filter(b => b.passenger_id === p.id) || [];
@@ -336,6 +344,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ showAlert }) => {
 
         return {
           ...p,
+          user_code: idMap.get(p.id), // Assign sequential ID
           trips_count: userTrips.length,
           bookings_count: userBookings.length,
           last_activity_at: lastActivity,
@@ -369,7 +378,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ showAlert }) => {
       const phone = u.phone ? u.phone.replace(/^(?:\+84|84)/, '0') : '';
       const phoneMatch = phone.includes(searchTerm);
       const emailMatch = u.email && removeAccents(u.email).includes(searchNormalized);
-      const matchesSearch = nameMatch || phoneMatch || emailMatch;
+      // Also allow searching by user code
+      const codeMatch = u.user_code && u.user_code.toLowerCase().includes(searchNormalized);
+      
+      const matchesSearch = nameMatch || phoneMatch || emailMatch || codeMatch;
       
       const matchesRole = roleFilter.includes('ALL') || roleFilter.includes(u.role);
       const matchesTier = tierFilter.includes('ALL') || tierFilter.includes(u.membership_tier || 'standard');
@@ -732,7 +744,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ showAlert }) => {
       <div className="md:hidden space-y-3 pb-24">
         {filteredUsers.length > 0 ? filteredUsers.map(user => {
             const isSelected = selectedIds.includes(user.id);
-            const userCode = `C${user.id.substring(0,5).toUpperCase()}`;
+            // Use calculated user_code or fallback
+            const userCode = user.user_code || `K${user.id.substring(0,5).toUpperCase()}`;
             const roleStyle = getRoleStyle(user.role);
             const tierConfig = getTierConfig(user.membership_tier);
             const TierIcon = tierConfig.icon;
@@ -817,7 +830,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ showAlert }) => {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filteredUsers.length > 0 ? filteredUsers.map(user => {
-                const userCode = `C${user.id.substring(0,5).toUpperCase()}`;
+                // Use calculated user_code or fallback
+                const userCode = user.user_code || `K${user.id.substring(0,5).toUpperCase()}`;
                 const isEditing = editingId === user.id;
                 const roleStyle = getRoleStyle(user.role);
                 const AvatarIcon = roleStyle.icon;

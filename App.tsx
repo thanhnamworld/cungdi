@@ -141,7 +141,20 @@ const App: React.FC = () => {
     }
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (data) {
-        setProfile(data);
+        // Logic: Tính toán ID tuần tự (K00001) bằng cách đếm số user cũ hơn
+        let userCode = 'K00000';
+        if (data.created_at) {
+            const { count } = await supabase
+                .from('profiles')
+                .select('*', { count: 'exact', head: true })
+                .lt('created_at', data.created_at);
+            
+            const sequenceNumber = (count || 0) + 1;
+            userCode = `K${String(sequenceNumber).padStart(5, '0')}`;
+        }
+
+        setProfile({ ...data, user_code: userCode });
+        
         // Kiểm tra xem đã có thông báo chào mừng chưa để tránh trùng lặp khi re-render
         setNotifications(prev => {
             const hasWelcome = prev.some(n => n.title === 'Chào mừng quay trở lại!' && (new Date().getTime() - new Date(n.timestamp).getTime() < 300000));
@@ -164,11 +177,23 @@ const App: React.FC = () => {
     const { data, error } = await supabase
       .from('trips')
       .select('*, profiles(full_name, phone, role, is_discount_provider), bookings(seats_booked, status)')
-      .order('departure_time', { ascending: true });
+      .order('departure_time', { ascending: true }); // Mặc định sort theo giờ đi cho hiển thị
     
     if (error) return;
 
     if (data) {
+      // Logic: Tính toán ID chuyến tuần tự (X00001) dựa trên created_at
+      // Tạo bản sao để sort theo created_at
+      const sortedByCreation = [...data].sort((a, b) => 
+          new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+      );
+      
+      // Tạo Map ID -> Mã tuần tự
+      const idMap = new Map();
+      sortedByCreation.forEach((t, index) => {
+          idMap.set(t.id, `X${String(index + 1).padStart(5, '0')}`);
+      });
+
       const formatted = data.map((t: any) => {
         const confirmedBookings = (t.bookings || []).filter((b: any) => b.status === 'CONFIRMED');
         const bookedSeats = confirmedBookings.reduce((sum: number, b: any) => sum + b.seats_booked, 0);
@@ -179,7 +204,8 @@ const App: React.FC = () => {
           ...t,
           driver_name: t.profiles?.full_name || 'Người dùng ẩn danh',
           driver_phone: t.profiles?.phone || '',
-          trip_code: `T${t.id.substring(0, 5).toUpperCase()}`,
+          // Gán mã tuần tự đã tính toán
+          trip_code: idMap.get(t.id) || `X${t.id.substring(0, 5).toUpperCase()}`, 
           bookings_count: activeOffers.length, 
           is_discount_provider: (t.profiles?.role === 'driver' && t.profiles?.is_discount_provider) || false,
           available_seats: realAvailableSeats < 0 ? 0 : realAvailableSeats
@@ -257,12 +283,22 @@ const App: React.FC = () => {
     const { data: latestTrip } = await supabase.from('trips').select('*, profiles(full_name, phone)').eq('id', tripId).single();
     if (!latestTrip) return;
 
-    const formattedTrip = { ...latestTrip, driver_name: latestTrip.profiles?.full_name || 'Người dùng ẩn danh', driver_phone: latestTrip.profiles?.phone || '', trip_code: `T${latestTrip.id.substring(0, 5).toUpperCase()}` };
+    // Tính toán mã chuyến xe tuần tự (cần context toàn bộ chuyến để chính xác, ở đây dùng tạm logic cũ nếu không có trong list)
+    // Tuy nhiên, tốt nhất là lấy từ state `trips` hiện có nếu có thể
+    const existingTrip = trips.find(t => t.id === tripId);
+    const tripCode = existingTrip?.trip_code || `X${latestTrip.id.substring(0, 5).toUpperCase()}`;
+
+    const formattedTrip = { 
+        ...latestTrip, 
+        driver_name: latestTrip.profiles?.full_name || 'Người dùng ẩn danh', 
+        driver_phone: latestTrip.profiles?.phone || '', 
+        trip_code: tripCode 
+    };
     const { data: bookingsForTrip } = await supabase.from('bookings').select('*, profiles:passenger_id(full_name, phone), trips(*)').eq('trip_id', tripId).order('created_at', { ascending: false });
 
     setSelectedTrip(formattedTrip);
     setSelectedTripBookings(bookingsForTrip || []);
-  }, []);
+  }, [trips]); // Add trips to dependency to reuse sequential codes
 
   useEffect(() => {
     const initAuth = async () => {

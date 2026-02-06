@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Car, Plus, Loader2, Edit3, Trash2, Save, Sparkles, UploadCloud, Crop, AlertTriangle, Database, Copy, CheckCircle2 } from 'lucide-react';
 import { Profile } from '../types';
@@ -289,9 +288,9 @@ const VehicleManagementModal: React.FC<VehicleManagementModalProps> = ({ isOpen,
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="relative w-full max-w-4xl h-[85vh] animate-in zoom-in-95 duration-300">
-        <div ref={modalRef} className="bg-white w-full h-full rounded-[40px] shadow-2xl overflow-hidden flex flex-col border border-white/20">
+    <div className="fixed inset-0 z-[250] flex items-center justify-center sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="relative w-[calc(100%-24px)] md:w-full max-w-4xl h-[90vh] md:h-[85vh] mx-3 md:mx-0 animate-in zoom-in-95 duration-300">
+        <div ref={modalRef} className="bg-white w-full h-full rounded-[32px] md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col border border-white/20">
             
             <div className="p-8 bg-gradient-to-r from-emerald-50 via-white to-teal-50 shrink-0 border-b border-emerald-100">
             <div className="flex items-center gap-4">
@@ -331,25 +330,33 @@ const VehicleManagementModal: React.FC<VehicleManagementModalProps> = ({ isOpen,
                         <div key={v.id} className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${editingVehicle?.id === v.id ? 'bg-indigo-50 border-indigo-200 shadow-md ring-1 ring-indigo-200' : 'bg-white border-slate-100 hover:shadow-md'}`}>
                         <div className="flex items-center gap-4">
                             {/* Hình ảnh xe hiển thị 1:1 */}
-                            <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 border overflow-hidden bg-slate-50 ${config.style}`}>
-                            {v.image_url ? (
-                                <img src={v.image_url} alt={v.license_plate} className="w-full h-full object-cover" />
-                            ) : (
-                                <VIcon size={24} />
-                            )}
+                            <div className={`w-14 h-14 rounded-xl flex items-center justify-center bg-slate-100 overflow-hidden border border-slate-200 shrink-0`}>
+                                {v.image_url ? (
+                                    <img src={v.image_url} alt="Xe" className="w-full h-full object-cover" />
+                                ) : (
+                                    <Car size={24} className="text-slate-300" />
+                                )}
                             </div>
-                            <div className="flex flex-col items-start gap-1.5">
-                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold ${config.style}`}>
-                                <VIcon size={12} /> {v.vehicle_type}
-                            </div>
-                            <div className="inline-flex items-center bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-200 text-[10px] font-black tracking-wider">
-                                <CopyableCode code={v.license_plate} label={v.license_plate} className="text-[10px]" />
-                            </div>
+                            <div>
+                                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[9px] font-bold mb-1 ${config.style}`}>
+                                    <VIcon size={10} /> {v.vehicle_type}
+                                </div>
+                                <p className="text-sm font-black text-slate-800 uppercase tracking-wider">{v.license_plate}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <button onClick={() => handleStartEdit(v)} className="p-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-indigo-100 hover:text-indigo-600 transition-colors"><Edit3 size={14} /></button>
-                            <button onClick={() => handleDelete(v.id)} className="p-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-rose-100 hover:text-rose-600 transition-colors"><Trash2 size={14} /></button>
+                            <button 
+                                onClick={() => handleStartEdit(v)}
+                                className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"
+                            >
+                                <Edit3 size={16} />
+                            </button>
+                            <button 
+                                onClick={() => handleDelete(v.id)}
+                                className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors"
+                            >
+                                <Trash2 size={16} />
+                            </button>
                         </div>
                         </div>
                     );
@@ -357,148 +364,124 @@ const VehicleManagementModal: React.FC<VehicleManagementModalProps> = ({ isOpen,
                 </div>
                 )}
             </div>
-            
-            <div className="p-8 bg-white border-l border-slate-100 flex flex-col overflow-y-auto custom-scrollbar">
-                {(isAdding || editingVehicle) ? (
-                <form onSubmit={handleSubmit} className="space-y-5 flex flex-col flex-1">
-                    <h4 className="font-bold text-slate-800 text-lg">{editingVehicle ? 'Chỉnh sửa xe' : 'Thêm xe mới'}</h4>
-                    
-                    {error && (
-                    <div className="text-xs text-rose-500 bg-rose-50 p-3 rounded-xl font-bold border border-rose-100 flex flex-col gap-2">
-                        <div className="flex items-center gap-2">
-                        <AlertTriangle size={14} className="shrink-0" /> {error}
-                        </div>
-                        {showBucketFix && (
-                        <div className="mt-1 pt-2 border-t border-rose-100/50">
-                            <p className="mb-2 text-rose-600">Sao chép SQL bên dưới và chạy trong Supabase SQL Editor để sửa lỗi:</p>
-                            <div className="relative group">
-                            <textarea 
-                                readOnly 
-                                value={FIX_SQL}
-                                className="w-full h-24 p-2 bg-rose-100/50 text-[10px] font-mono rounded-lg border border-rose-200 text-rose-800 outline-none resize-none"
-                            />
-                            <button 
-                                type="button" 
-                                onClick={handleCopySQL}
-                                className="absolute top-2 right-2 p-1.5 bg-white rounded-md shadow-sm border border-rose-100 text-rose-500 hover:text-emerald-600 transition-colors"
-                            >
-                                {copySuccess ? <CheckCircle2 size={12} /> : <Copy size={12} />}
-                            </button>
-                            </div>
-                            <a 
-                            href="https://supabase.com/dashboard/project/_/sql" 
-                            target="_blank" 
-                            rel="noreferrer"
-                            className="mt-2 inline-flex items-center gap-1 text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded-lg hover:bg-slate-900 transition-colors"
-                            >
-                            <Database size={10} /> Mở Supabase SQL Editor
-                            </a>
-                        </div>
-                        )}
-                    </div>
-                    )}
-                    
-                    {/* Unified Dropdown Integration with Badge */}
-                    <div>
-                    <label className="text-xs font-bold text-slate-400 mb-1.5 block ml-1">Loại xe</label>
-                    <UnifiedDropdown
-                        label="Chọn loại xe"
-                        icon={Car}
-                        value={vehicleType}
-                        width="w-full"
-                        showCheckbox={false}
-                        isVehicle={true}
-                        options={vehicleOptions}
-                        onChange={(val: string) => setVehicleType(val)}
-                    />
-                    </div>
-                    
-                    <div>
-                    <label className="text-xs font-bold text-slate-400 mb-1.5 block ml-1">Biển kiểm soát</label>
-                    <input 
-                        type="text" 
-                        value={licensePlate} 
-                        onChange={e => setLicensePlate(e.target.value.toUpperCase())} 
-                        placeholder="VD: 29A-123.45" 
-                        required 
-                        className={INPUT_STYLE}
-                    />
-                    </div>
 
-                    {/* Image Upload Section - Vuông 1:1 */}
-                    <div>
-                    <label className="text-xs font-bold text-slate-400 mb-1.5 block ml-1">Hình ảnh xe (Tự động cắt vuông & Nén)</label>
-                    <div className="w-full flex justify-center">
-                        {imageUrl ? (
-                        <div className="relative group rounded-2xl overflow-hidden border border-slate-200 w-48 h-48 bg-slate-50 shadow-sm">
-                            <img src={imageUrl} alt="Vehicle preview" className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <button 
-                                type="button" 
-                                onClick={() => setImageUrl('')}
-                                className="px-4 py-2 bg-white text-rose-600 rounded-xl font-bold text-xs shadow-lg hover:bg-rose-50 transition-colors"
-                            >
-                                Xoá ảnh
-                            </button>
-                            </div>
-                        </div>
-                        ) : (
-                        <div 
-                            onClick={() => fileInputRef.current?.click()}
-                            className="w-48 h-48 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-emerald-400 hover:text-emerald-500 hover:bg-emerald-50 transition-all cursor-pointer group bg-slate-50/50"
-                        >
-                            {uploading ? (
-                            <div className="flex flex-col items-center gap-2">
-                                <Loader2 className="animate-spin text-emerald-500" size={24} />
-                                <span className="text-[10px] font-bold text-emerald-600 text-center px-4">Đang cắt & nén ảnh...</span>
-                            </div>
-                            ) : (
-                            <>
-                                <div className="p-3 bg-white rounded-full shadow-sm border border-slate-100 group-hover:scale-110 transition-transform relative">
-                                <UploadCloud size={20} />
-                                <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border-2 border-white">
-                                    <Crop size={8} />
-                                </div>
-                                </div>
-                                <div className="text-center px-4">
-                                <span className="text-[10px] font-bold block">Tải ảnh lên</span>
-                                <span className="text-[9px] font-medium opacity-70">Tự động cắt 1:1</span>
-                                </div>
-                            </>
-                            )}
-                        </div>
-                        )}
-                        <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        className="hidden" 
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        />
-                    </div>
-                    </div>
+            {/* Right Side: Form */}
+            <div className="border-l border-slate-100 bg-white p-8 flex flex-col overflow-y-auto custom-scrollbar">
+                <h4 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    {isAdding ? <Plus size={18} className="text-emerald-500" /> : editingVehicle ? <Edit3 size={18} className="text-indigo-500" /> : <Sparkles size={18} className="text-slate-400" />}
+                    {isAdding ? 'Thêm xe mới' : editingVehicle ? 'Cập nhật xe' : 'Chi tiết xe'}
+                </h4>
 
-                    <div className="mt-auto pt-6 space-y-3">
-                    <button type="submit" disabled={loading || uploading} className="w-full py-3.5 bg-emerald-600 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all disabled:opacity-50 shadow-lg shadow-emerald-200">
-                        {loading ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                        {editingVehicle ? 'Lưu thay đổi' : 'Thêm vào đội xe'}
-                    </button>
-                    <button type="button" onClick={resetForm} className="w-full py-3 bg-slate-50 text-slate-500 rounded-xl text-xs font-bold hover:bg-slate-100 transition-colors">Hủy bỏ</button>
+                {!isAdding && !editingVehicle ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-400 space-y-4 opacity-60">
+                        <Car size={64} strokeWidth={1} />
+                        <p className="text-xs text-center px-10">Chọn một xe để chỉnh sửa hoặc nhấn "Thêm xe mới".</p>
                     </div>
-                </form>
                 ) : (
-                <div className="text-center my-auto flex flex-col items-center p-6">
-                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-100">
-                    <Sparkles size={32} className="text-slate-300" />
-                    </div>
-                    <p className="text-sm font-bold text-slate-600">Chọn một xe để sửa</p>
-                    <p className="text-xs font-medium text-slate-400 mt-1">Hoặc thêm xe mới để bắt đầu nhận chuyến.</p>
-                </div>
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                        {error && (
+                            <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-600 font-bold flex items-start gap-2">
+                                <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                                <div>{error}</div>
+                            </div>
+                        )}
+
+                        {showBucketFix && (
+                            <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl space-y-2">
+                                <p className="text-[10px] text-amber-800 font-bold flex items-center gap-1.5"><Database size={12}/> Cần cấu hình Storage</p>
+                                <div className="relative">
+                                    <textarea readOnly value={FIX_SQL} className="w-full h-20 text-[9px] font-mono bg-white border border-amber-200 rounded p-2 outline-none resize-none" />
+                                    <button type="button" onClick={handleCopySQL} className="absolute top-1 right-1 p-1 bg-amber-100 text-amber-700 rounded hover:bg-amber-200">{copySuccess ? <CheckCircle2 size={10}/> : <Copy size={10}/>}</button>
+                                </div>
+                                <a href="https://supabase.com/dashboard/project/_/sql" target="_blank" rel="noreferrer" className="block text-center text-[10px] bg-amber-600 text-white py-1.5 rounded font-bold hover:bg-amber-700">Mở SQL Editor</a>
+                            </div>
+                        )}
+
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] font-bold text-slate-500 ml-1">Loại xe</label>
+                            <UnifiedDropdown 
+                                label="Chọn loại xe" 
+                                icon={Car} 
+                                value={vehicleType} 
+                                onChange={setVehicleType} 
+                                width="w-full" 
+                                showCheckbox={false}
+                                options={vehicleOptions}
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] font-bold text-slate-500 ml-1">Biển kiểm soát</label>
+                            <input 
+                                type="text" 
+                                value={licensePlate} 
+                                onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
+                                placeholder="VD: 30A-123.45"
+                                className={INPUT_STYLE}
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] font-bold text-slate-500 ml-1">Hình ảnh xe (Bắt buộc)</label>
+                            <div 
+                                onClick={() => fileInputRef.current?.click()}
+                                className={`w-full aspect-video rounded-2xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all relative overflow-hidden group ${imageUrl ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50'}`}
+                            >
+                                {imageUrl ? (
+                                    <>
+                                        <img src={imageUrl} alt="Vehicle" className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="bg-white/20 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-2">
+                                                <UploadCloud size={14} /> Thay ảnh
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center mb-2 text-indigo-500 group-hover:scale-110 transition-transform">
+                                            {uploading ? <Loader2 className="animate-spin" size={20} /> : <UploadCloud size={20} />}
+                                        </div>
+                                        <p className="text-xs font-bold text-slate-400 group-hover:text-indigo-500 transition-colors">Nhấn để tải ảnh lên</p>
+                                    </>
+                                )}
+                                <input 
+                                    type="file" 
+                                    ref={fileInputRef} 
+                                    className="hidden" 
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="pt-2 flex gap-3">
+                            {editingVehicle && (
+                                <button 
+                                    type="button" 
+                                    onClick={() => { resetForm(); setIsAdding(true); }}
+                                    className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all"
+                                >
+                                    Hủy
+                                </button>
+                            )}
+                            <button 
+                                type="submit" 
+                                disabled={loading || uploading}
+                                className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
+                            >
+                                {loading ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                                {editingVehicle ? 'Lưu thay đổi' : 'Thêm xe'}
+                            </button>
+                        </div>
+                    </form>
                 )}
             </div>
             </div>
         </div>
-        <button onClick={onClose} className="absolute -top-4 -right-4 w-11 h-11 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-rose-500/30 hover:rotate-90 hover:bg-rose-600 transition-all duration-300 z-[210] border-2 border-white">
+        <button 
+          onClick={onClose} 
+          className="absolute -top-4 -right-4 w-11 h-11 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-rose-500/30 hover:rotate-90 hover:bg-rose-600 transition-all duration-300 z-[260] border-2 border-white"
+        >
           <X size={20} strokeWidth={3} />
         </button>
       </div>

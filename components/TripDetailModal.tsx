@@ -1,4 +1,3 @@
-
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { 
   X, Car, MapPin, Clock, Users, Calendar, CheckCircle2, Play, Phone, Loader2, ListChecks, LayoutList, LayoutGrid, User, ClipboardList, XCircle, Trash2, Search, Edit3, AlertTriangle
@@ -300,8 +299,8 @@ const TripDetailModal: React.FC<TripDetailModalProps> = ({ trip, currentBookings
   );
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="relative w-full max-w-[1400px] h-[95vh] animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="relative w-[calc(100%-24px)] md:w-full max-w-[1400px] h-[90vh] md:h-[95vh] mx-3 md:mx-0 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
         <div ref={modalRef} className="bg-white w-full h-full rounded-[32px] md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col border border-white/20">
             <div className="flex-1 flex flex-col overflow-y-auto lg:overflow-hidden custom-scrollbar relative">
             

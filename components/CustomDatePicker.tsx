@@ -1,19 +1,21 @@
-
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 
 interface CustomDatePickerProps {
-  selectedDate: string; // Định dạng dd-mm-yyyy
+  selectedDate: string; // Định dạng dd-mm-yy
   onSelect: (date: string) => void;
   onClose: () => void;
   minDate?: Date;
 }
 
 const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ selectedDate, onSelect, onClose, minDate }) => {
-  // Chuyển đổi từ dd-mm-yyyy sang Date object để hiển thị view
+  // Chuyển đổi từ dd-mm-yy sang Date object để hiển thị view
   const parseDate = (dateStr: string) => {
     if (!dateStr) return new Date();
-    const [d, m, y] = dateStr.split('-').map(Number);
+    const parts = dateStr.split('-').map(Number);
+    let [d, m, y] = parts;
+    // Xử lý năm 2 chữ số
+    if (y < 100) y += 2000;
     return new Date(y, m - 1, d);
   };
 
@@ -35,8 +37,8 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ selectedDate, onSel
   const handleSelectDay = (day: number) => {
     const d = String(day).padStart(2, '0');
     const m = String(month + 1).padStart(2, '0');
-    const y = year;
-    onSelect(`${d}-${m}-${y}`); // Trả về định dạng dd-mm-yyyy
+    const y = String(year).slice(-2); // Lấy 2 số cuối của năm
+    onSelect(`${d}-${m}-${y}`); // Trả về định dạng dd-mm-yy
     onClose();
   };
 
@@ -68,7 +70,7 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ selectedDate, onSel
         type="button"
         disabled={isDisabled}
         onClick={() => !isDisabled && handleSelectDay(d)}
-        className={`h-9 w-9 rounded-xl flex items-center justify-center text-xs font-bold transition-all relative
+        className={`h-8 w-full aspect-square rounded-xl flex items-center justify-center text-xs font-bold transition-all relative
           ${isSelected(d) ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : ''}
           ${!isSelected(d) && !isDisabled ? 'hover:bg-emerald-50 text-slate-700' : ''}
           ${isToday(d) && !isSelected(d) ? 'text-emerald-600 ring-1 ring-emerald-200' : ''}
@@ -81,7 +83,7 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ selectedDate, onSel
   }
 
   return (
-    <div className="bg-white rounded-[24px] border border-slate-100 shadow-2xl p-5 w-[280px] animate-in fade-in zoom-in-95 duration-200">
+    <div className="bg-white rounded-[24px] border border-slate-100 shadow-2xl p-4 w-[85vw] max-w-[280px] animate-in fade-in zoom-in-95 duration-200 origin-top-left">
       <div className="flex items-center justify-between mb-4 px-1">
         <button type="button" onClick={handlePrevMonth} className="p-1.5 hover:bg-slate-50 rounded-lg transition-colors">
           <ChevronLeft size={16} className="text-slate-400" />
@@ -96,7 +98,7 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ selectedDate, onSel
 
       <div className="grid grid-cols-7 gap-1 mb-1">
         {weekDays.map(day => (
-          <div key={day} className="h-9 w-9 flex items-center justify-center text-[9px] font-bold text-slate-300">
+          <div key={day} className="h-8 flex items-center justify-center text-[9px] font-bold text-slate-300">
             {day}
           </div>
         ))}
@@ -112,7 +114,7 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ selectedDate, onSel
           const today = new Date();
           const d = String(today.getDate()).padStart(2, '0');
           const m = String(today.getMonth() + 1).padStart(2, '0');
-          const y = today.getFullYear();
+          const y = String(today.getFullYear()).slice(-2);
           onSelect(`${d}-${m}-${y}`);
           onClose();
         }}

@@ -158,7 +158,8 @@ const TripManagement: React.FC<TripManagementProps> = ({ profile, trips, booking
       if (tripTypeFilter === 'SUPPLY' && isRequest) return false;
       if (tripTypeFilter === 'DEMAND' && !isRequest) return false;
 
-      const tripCode = trip.trip_code || (trip.id ? `T${trip.id.substring(0, 5).toUpperCase()}` : '');
+      // Update: Logic ID Chuyến xe bắt đầu bằng X
+      const tripCode = trip.trip_code || (trip.id ? `X${trip.id.substring(0, 5).toUpperCase()}` : '');
       const matchesSearch = removeAccents(trip.origin_name).includes(searchNormalized) || 
                             removeAccents(trip.dest_name).includes(searchNormalized) ||
                             (tripCode && removeAccents(tripCode).includes(searchNormalized)) ||
@@ -296,7 +297,8 @@ const TripManagement: React.FC<TripManagementProps> = ({ profile, trips, booking
     const createdAt = trip.created_at ? new Date(trip.created_at) : null;
     const createdAtTime = createdAt ? createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
     const createdAtDay = createdAt ? createdAt.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--/--';
-    const tripCode = trip.trip_code || (trip.id ? `T${trip.id.substring(0, 5).toUpperCase()}` : '');
+    // Update: Logic ID Chuyến xe bắt đầu bằng X
+    const tripCode = trip.trip_code || (trip.id ? `X${trip.id.substring(0, 5).toUpperCase()}` : '');
     const isCompleted = trip.status === TripStatus.COMPLETED;
     const isCancelled = trip.status === TripStatus.CANCELLED;
     const isOngoing = trip.status === TripStatus.ON_TRIP;

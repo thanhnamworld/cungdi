@@ -345,7 +345,8 @@ const ProfileManagement: React.FC<ProfileManagementProps> = ({ isOpen, onClose, 
 
   if (!isOpen) return null;
 
-  const userCode = `C${profile?.id.substring(0, 5).toUpperCase() || '00000'}`;
+  // Use calculated user_code from App.tsx or fallback
+  const userCode = profile?.user_code || `K${profile?.id.substring(0, 5).toUpperCase() || '00000'}`;
   const roleInfo = getRoleBadgeConfig(profile?.role);
   const RoleIcon = roleInfo.icon;
   const isPhoneUser = !originalEmail; // Cảnh báo nếu chưa có email
@@ -354,7 +355,7 @@ const ProfileManagement: React.FC<ProfileManagementProps> = ({ isOpen, onClose, 
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl h-[85vh] md:h-auto md:max-h-[90vh] animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+      <div className="relative w-full max-w-5xl h-[90vh] animate-in zoom-in-95 duration-300">
         <div 
             ref={modalRef}
             className="bg-[#F8FAFC] w-full h-full rounded-[32px] shadow-2xl overflow-hidden flex flex-col border border-white"

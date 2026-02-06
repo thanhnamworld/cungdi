@@ -38,7 +38,7 @@ const getTomorrowFormatted = () => {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const d = String(tomorrow.getDate()).padStart(2, '0');
   const m = String(tomorrow.getMonth() + 1).padStart(2, '0');
-  const y = tomorrow.getFullYear();
+  const y = String(tomorrow.getFullYear()).slice(-2); // Lấy 2 số cuối
   return `${d}-${m}-${y}`;
 };
 
@@ -152,7 +152,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
         const dep = new Date(editingTrip.departure_time);
         const d = String(dep.getDate()).padStart(2, '0');
         const m = String(dep.getMonth() + 1).padStart(2, '0');
-        const y = dep.getFullYear();
+        const y = String(dep.getFullYear()).slice(-2); // 2-digit year
         setDate(`${d}-${m}-${y}`);
         setTime(`${String(dep.getHours()).padStart(2, '0')}:${String(dep.getMinutes()).padStart(2, '0')}`);
         
@@ -395,11 +395,13 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
     if (editingTrip) {
        // UPDATE MODE: Only update current trip
        const [d, m, y] = date.split('-').map(Number);
-       const departure = new Date(y, m - 1, d);
+       // Handle 2-digit year
+       const fullYear = y < 100 ? 2000 + y : y;
+       const departure = new Date(fullYear, m - 1, d);
        const [h, min] = time.split(':').map(Number);
        departure.setHours(h, min, 0, 0);
        
-       const arrival = new Date(y, m - 1, d);
+       const arrival = new Date(fullYear, m - 1, d);
        const [ah, amin] = arrivalTime.split(':').map(Number);
        arrival.setHours(ah, amin, 0, 0);
        if (arrival < departure) arrival.setDate(arrival.getDate() + 1);
@@ -422,7 +424,9 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
       }
     } else {
       const [d, m, y] = date.split('-').map(Number);
-      const departure = new Date(y, m - 1, d);
+      // Handle 2-digit year
+      const fullYear = y < 100 ? 2000 + y : y;
+      const departure = new Date(fullYear, m - 1, d);
       const [h, min] = time.split(':').map(Number);
       departure.setHours(h, min, 0, 0);
       
@@ -431,7 +435,7 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
         return;
       }
       
-      const arrival = new Date(y, m - 1, d);
+      const arrival = new Date(fullYear, m - 1, d);
       const [ah, amin] = arrivalTime.split(':').map(Number);
       arrival.setHours(ah, amin, 0, 0);
       if (arrival < departure) arrival.setDate(arrival.getDate() + 1);
@@ -503,9 +507,9 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="relative w-full max-w-4xl h-[85vh] animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
-        <div ref={modalRef} className="bg-white w-full h-full rounded-[40px] shadow-2xl overflow-hidden flex flex-col border border-white/20">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center sm:p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="relative w-[calc(100%-24px)] md:w-full max-w-4xl h-[90vh] md:h-[85vh] mx-3 md:mx-0 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+        <div ref={modalRef} className="bg-white w-full h-full rounded-[32px] md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col border border-white/20">
             {/* Header - Centered Pill */}
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-center bg-white shrink-0 z-20">
                 <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200">
@@ -706,23 +710,35 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                         <div className="space-y-3">
                             {!isRecurring ? (
                             <div className="flex gap-3">
-                                <div className="flex-1 relative" ref={datePickerRef}>
+                                <div className="flex-1 relative z-30" ref={datePickerRef}>
                                     <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 tracking-wider">Ngày đi</label>
                                     <button type="button" onClick={() => setShowDatePicker(!showDatePicker)} className={`w-full flex items-center justify-between px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 shadow-sm transition-all h-[38px] ${postMode === 'PASSENGER' ? 'hover:border-orange-300' : 'hover:border-emerald-300'}`}>
                                     <span>{date}</span><Calendar size={14} className={postMode === 'PASSENGER' ? 'text-orange-500' : 'text-emerald-500'} />
                                     </button>
-                                    {showDatePicker && <div className="absolute top-full left-0 z-[60] mt-2"><CustomDatePicker selectedDate={date} onSelect={setDate} onClose={() => setShowDatePicker(false)} minDate={isStaff ? undefined : minDate} /></div>}
+                                    {showDatePicker && (
+                                        <div className="absolute top-full left-0 z-[60] mt-2">
+                                            <CustomDatePicker selectedDate={date} onSelect={setDate} onClose={() => setShowDatePicker(false)} minDate={isStaff ? undefined : minDate} />
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="w-[28%] relative" ref={timePickerRef}>
+                                <div className="w-[28%] relative z-30" ref={timePickerRef}>
                                     <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 tracking-wider">Giờ đi</label>
                                     <button type="button" onClick={() => setShowTimePicker(!showTimePicker)} className={`w-full flex items-center justify-between px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 shadow-sm transition-all h-[38px] ${postMode === 'PASSENGER' ? 'hover:border-orange-300' : 'hover:border-emerald-300'}`}><span>{time}</span></button>
-                                    {showTimePicker && <div className="absolute top-full right-0 z-[60] mt-2"><CustomTimePicker selectedTime={time} onSelect={setTime} onClose={() => setShowTimePicker(false)} /></div>}
+                                    {showTimePicker && (
+                                        <div className={`absolute top-full z-[60] mt-2 ${postMode === 'DRIVER' ? 'left-1/2 -translate-x-1/2' : 'right-0'}`}>
+                                            <CustomTimePicker selectedTime={time} onSelect={setTime} onClose={() => setShowTimePicker(false)} />
+                                        </div>
+                                    )}
                                 </div>
                                 {postMode === 'DRIVER' && (
-                                <div className="w-[28%] relative" ref={arrivalTimePickerRef}>
+                                <div className="w-[28%] relative z-30" ref={arrivalTimePickerRef}>
                                     <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 tracking-wider">Đến</label>
                                     <button type="button" onClick={() => setShowArrivalTimePicker(!showArrivalTimePicker)} className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 shadow-sm transition-all hover:bg-white h-[38px]"><span>{arrivalTime}</span></button>
-                                    {showArrivalTimePicker && <div className="absolute top-full right-0 z-[60] mt-2"><CustomTimePicker selectedTime={arrivalTime} onSelect={setArrivalTime} onClose={() => setShowArrivalTimePicker(false)} /></div>}
+                                    {showArrivalTimePicker && (
+                                        <div className="absolute top-full right-0 z-[60] mt-2">
+                                            <CustomTimePicker selectedTime={arrivalTime} onSelect={setArrivalTime} onClose={() => setShowArrivalTimePicker(false)} />
+                                        </div>
+                                    )}
                                 </div>
                                 )}
                             </div>
@@ -737,16 +753,24 @@ const PostTrip: React.FC<PostTripProps> = ({ onPost, onUpdate, profile, onManage
                                     </div>
                                 </div>
                                 <div className="flex gap-3">
-                                    <div className="flex-1 relative" ref={timePickerRef}>
+                                    <div className="flex-1 relative z-30" ref={timePickerRef}>
                                         <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 tracking-wider">Giờ đi</label>
                                         <button type="button" onClick={() => setShowTimePicker(!showTimePicker)} className={`w-full flex items-center justify-between px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 shadow-sm transition-all h-[38px] ${postMode === 'PASSENGER' ? 'hover:border-orange-300' : 'hover:border-emerald-300'}`}><span>{time}</span><Clock size={14} className={postMode === 'PASSENGER' ? 'text-orange-500' : 'text-emerald-500'} /></button>
-                                        {showTimePicker && <div className="absolute top-full left-0 z-[60] mt-2"><CustomTimePicker selectedTime={time} onSelect={setTime} onClose={() => setShowTimePicker(false)} /></div>}
+                                        {showTimePicker && (
+                                            <div className="absolute top-full left-0 z-[60] mt-2">
+                                                <CustomTimePicker selectedTime={time} onSelect={setTime} onClose={() => setShowTimePicker(false)} />
+                                            </div>
+                                        )}
                                     </div>
                                     {postMode === 'DRIVER' && (
-                                    <div className="flex-1 relative" ref={arrivalTimePickerRef}>
+                                    <div className="flex-1 relative z-30" ref={arrivalTimePickerRef}>
                                         <label className="text-[10px] font-bold text-slate-400 ml-1 block mb-1 tracking-wider">Dự kiến đến</label>
                                         <button type="button" onClick={() => setShowArrivalTimePicker(!showArrivalTimePicker)} className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 shadow-sm transition-all hover:bg-white h-[38px]"><span>{arrivalTime}</span><Clock size={14} className="text-slate-400" /></button>
-                                        {showArrivalTimePicker && <div className="absolute top-full right-0 z-[60] mt-2"><CustomTimePicker selectedTime={arrivalTime} onSelect={setArrivalTime} onClose={() => setShowArrivalTimePicker(false)} /></div>}
+                                        {showArrivalTimePicker && (
+                                            <div className="absolute top-full right-0 z-[60] mt-2">
+                                                <CustomTimePicker selectedTime={arrivalTime} onSelect={setArrivalTime} onClose={() => setShowArrivalTimePicker(false)} />
+                                            </div>
+                                        )}
                                     </div>
                                     )}
                                 </div>
